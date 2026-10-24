@@ -6,6 +6,7 @@
   <img alt="WebHID" src="https://img.shields.io/badge/WebHID-Chrome%20%C2%B7%20Edge%20%C2%B7%20Brave-4285F4?style=flat&logo=googlechrome&logoColor=white" />&nbsp;
   <img alt="Electron" src="https://img.shields.io/badge/Electron-33.2-47848F?style=flat&logo=electron&logoColor=white" />&nbsp;
 </p>
+<p align="center"><a href="https://dorsal.cotoo.dev"><strong>dorsal.cotoo.dev</strong></a></p>
 <p align="center"><strong>English</strong> · <a href="README.pt.md">Português</a></p>
 
 <br>
@@ -41,8 +42,27 @@ The X85 Pro is officially configured through **qmk.top**, a website that talks t
 - **3D keyboard:** a model faithful to the product (gradient keycaps, knob, live TFT), with a camera that moves to whatever each section edits.
 - **Two languages:** Portuguese and English, key, function and effect names included.
 
+### X85 Screen
+
+<img src="public/landing/mini.png" alt="X85 Screen: the keyboard's screen in 3D, the zoom and the send buttons" width="300" align="right">
+
+Only want to change the picture on the keyboard? **X85 Screen** is a small window that does just that: choose an image or a GIF, frame it on the 3D screen, and send it. It shares the screen editor with the configurator, but skips reading the keyboard's other settings, so it opens faster.
+
+- **AppImage:** `npm run appimage:mini` builds `release-mini/X85-Screen-<version>.AppImage`.
+- **Browser:** [`dorsal.cotoo.dev/mini.html`](https://dorsal.cotoo.dev/mini.html), with `?lang=en` or `?lang=pt`.
+- **Details:** [`docs/x85-screen.md`](docs/x85-screen.md).
+
+<br clear="right">
 
 ### Documentation
+
+| Guide | What it covers |
+| --- | --- |
+| [Architecture](docs/architecture.md) | Routes, device layer, transport, screen pipeline, the 3D board, languages, Electron shell |
+| [Development](docs/development.md) | Setup, scripts, environment variables, demo and developer modes, tests |
+| [Deployment](docs/deployment.md) | Publishing on `dorsal.cotoo.dev` and distributing the AppImages |
+| [X85 Screen](docs/x85-screen.md) | The mini app for the TFT |
+| [Troubleshooting](docs/troubleshooting.md) | Keyboard not found, stalled uploads, slow 3D |
 
 The protocol is documented in [`docs/protocol.md`](docs/protocol.md) (in Portuguese), with every command confirmed against the real keyboard.
 
@@ -79,7 +99,7 @@ The protocol is documented in [`docs/protocol.md`](docs/protocol.md) (in Portugu
 
 1. **AppImages:** `npm run appimage` and `npm run appimage:mini` build both files into `release/` and `release-mini/`.
 2. **Website:** `npm run build` builds `dist/`. On Vercel, `vercel.json` sends every route that is not a file to `index.html`.
-3. **Downloads:** the landing page links to `/X85-Configurator-<version>.AppImage` and `/X85-Screen-<version>.AppImage` at the site root. Publish both files alongside `dist/`.
+3. **Downloads:** the landing page links to both AppImages at the site's root, or at `VITE_DOWNLOAD_BASE` (a GitHub release, for example). See [`docs/deployment.md`](docs/deployment.md).
 
 
 ### Known Limitations

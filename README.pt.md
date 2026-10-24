@@ -6,6 +6,7 @@
   <img alt="WebHID" src="https://img.shields.io/badge/WebHID-Chrome%20%C2%B7%20Edge%20%C2%B7%20Brave-4285F4?style=flat&logo=googlechrome&logoColor=white" />&nbsp;
   <img alt="Electron" src="https://img.shields.io/badge/Electron-33.2-47848F?style=flat&logo=electron&logoColor=white" />&nbsp;
 </p>
+<p align="center"><a href="https://dorsal.cotoo.dev"><strong>dorsal.cotoo.dev</strong></a></p>
 <p align="center"><a href="README.md">English</a> · <strong>Português</strong></p>
 
 <br>
@@ -41,8 +42,29 @@ O **Dorsal** reimplementa o protocolo do teclado do zero, a partir de engenharia
 - **Teclado em 3D:** modelo fiel ao produto (degradê das teclas, knob, TFT ao vivo), com uma câmera que vai até o que cada seção edita.
 - **Dois idiomas:** português e inglês, incluindo os nomes das teclas, funções e efeitos.
 
+### X85 Screen
+
+<img src="public/landing/mini.png" alt="X85 Screen: a tela do teclado em 3D, o zoom e os botões de enviar" width="300" align="right">
+
+Só quer trocar a imagem do teclado? O **X85 Screen** é uma janela pequena que faz só isso: escolher uma imagem ou um GIF, enquadrar na tela em 3D e enviar. Ele usa o mesmo editor de tela do configurador, mas não lê as outras configurações do teclado, então abre mais rápido.
+
+- **AppImage:** `npm run appimage:mini` gera `release-mini/X85-Screen-<versão>.AppImage`.
+- **Navegador:** [`dorsal.cotoo.dev/mini.html`](https://dorsal.cotoo.dev/mini.html), com `?lang=pt` ou `?lang=en`.
+- **Detalhes:** [`docs/x85-screen.md`](docs/x85-screen.md) (em inglês).
+
+<br clear="right">
 
 ### Documentação
+
+Os guias estão em inglês:
+
+| Guia | O que cobre |
+| --- | --- |
+| [Arquitetura](docs/architecture.md) | Rotas, camada do dispositivo, transporte, envio de imagens, o teclado 3D, idiomas, Electron |
+| [Desenvolvimento](docs/development.md) | Ambiente, scripts, variáveis, modos demonstração e desenvolvedor, testes |
+| [Publicação](docs/deployment.md) | Publicar em `dorsal.cotoo.dev` e distribuir os AppImages |
+| [X85 Screen](docs/x85-screen.md) | O app pequeno para a tela |
+| [Problemas comuns](docs/troubleshooting.md) | Teclado não encontrado, envio parado, 3D lento |
 
 O protocolo está documentado em [`docs/protocol.md`](docs/protocol.md), com cada comando confirmado em leituras do teclado real.
 
@@ -79,7 +101,7 @@ O protocolo está documentado em [`docs/protocol.md`](docs/protocol.md), com cad
 
 1. **AppImages:** `npm run appimage` e `npm run appimage:mini` geram os dois arquivos em `release/` e `release-mini/`.
 2. **Site:** `npm run build` gera `dist/`. Na Vercel, o `vercel.json` manda toda rota que não é arquivo para o `index.html`.
-3. **Downloads:** a landing aponta para `/X85-Configurator-<versão>.AppImage` e `/X85-Screen-<versão>.AppImage` na raiz do site. Publique os dois arquivos junto com o `dist/`.
+3. **Downloads:** a landing aponta para os dois AppImages na raiz do site, ou em `VITE_DOWNLOAD_BASE` (um release do GitHub, por exemplo). Veja [`docs/deployment.md`](docs/deployment.md).
 
 
 ### Limitações Conhecidas
