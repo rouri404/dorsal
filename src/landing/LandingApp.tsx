@@ -497,9 +497,9 @@ const QUESTIONS: [string, string, string, string][] = [
   ],
   [
     "Preciso instalar algum driver ou biblioteca para usar no navegador?",
-    "Não. O navegador já fala com o teclado pelo WebHID: não há driver, extensão nem programa para instalar. No Linux só é preciso, uma vez, a regra de acesso do passo 1, que libera o dispositivo para o seu usuário. No Windows e no macOS, nem isso.",
+    "Não. O navegador conversa direto com o teclado. No Linux, basta rodar uma vez o comando do passo 1.",
     "Do I need to install a driver or library to use it in the browser?",
-    "No. The browser talks to the keyboard through WebHID: there is no driver, extension or program to install. On Linux you only need, once, the access rule from step 1, which opens the device to your user. On Windows and macOS, not even that.",
+    "No. The browser talks to the keyboard directly. On Linux, just run the command from step 1 once.",
   ],
   [
     "Funciona pelo dongle 2.4G?",
