@@ -3,6 +3,9 @@
 /** Working name, until a final one is chosen. */
 export const PRODUCT = "Dorsal";
 
+/** Where the site lives. */
+export const SITE = "https://dorsal.cotoo.dev";
+
 /** The mark: a keycap with a dorsal fin cutting through its face. */
 export function Logo({ className }: { className?: string }) {
   return (

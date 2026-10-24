@@ -1,3 +1,8 @@
 {
-  "rewrites": [{ "source": "/((?!assets/|landing/|mini\\.html|favicon\\.svg|icon\\.png|.*\\.AppImage).*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/((?!assets/|landing/|mini\\.html|favicon\\.svg|icon\\.png|og\\.png|robots\\.txt|sitemap\\.xml|.*\\.AppImage).*)",
+      "destination": "/index.html"
+    }
+  ]
 }

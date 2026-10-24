@@ -4,7 +4,8 @@ import { DeviceProvider } from "./device";
 import { Configurator } from "./app/Configurator";
 import { LandingApp } from "./landing/LandingApp";
 import { LangContext } from "./i18n";
-import { useRoute } from "./router";
+import { pathOf, useRoute } from "./router";
+import { SITE } from "./brand";
 import { uploadJob } from "./screen/uploadJob";
 import "./styles.css";
 
@@ -18,6 +19,7 @@ if (previewUpload !== null) {
 function Root() {
   const route = useRoute();
   document.documentElement.lang = route.lang === "en" ? "en" : "pt-BR";
+  document.querySelector('link[rel="canonical"]')?.setAttribute("href", SITE + pathOf(route));
   return (
     <LangContext.Provider value={route.lang}>
       {route.page === "landing" ? (

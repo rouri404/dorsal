@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://dorsal.cotoo.dev/</loc>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://dorsal.cotoo.dev/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://dorsal.cotoo.dev/en" />
+  </url>
+  <url>
+    <loc>https://dorsal.cotoo.dev/en</loc>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://dorsal.cotoo.dev/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://dorsal.cotoo.dev/en" />
+  </url>
+  <url>
+    <loc>https://dorsal.cotoo.dev/app/tela</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://dorsal.cotoo.dev/en/app/screen" />
+  </url>
+  <url>
+    <loc>https://dorsal.cotoo.dev/en/app/screen</loc>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://dorsal.cotoo.dev/app/tela" />
+  </url>
+</urlset>
