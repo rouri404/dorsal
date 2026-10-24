@@ -164,14 +164,26 @@ export function DeviceProvider({ children, parts = Object.keys(READERS) as Snaps
     [readParts],
   );
 
+  // One connection attempt at a time. Plugging the cable in fires a "connect" event per USB
+  // interface, the Connect button can be pressed during a silent reconnect, and opening a
+  // device that is already being opened fails ("An operation that changes the device state is
+  // in progress"): later callers wait for the attempt in progress instead.
+  const attaching = useRef<Promise<void> | null>(null);
   const attach = useCallback(
-    async (devices: HIDDevice[]) => {
-      // Only the cable: the dongle answers no configuration command (it replies with zeros).
-      const cable = devices.find((d) => d.productId === PRODUCT_WIRED);
-      if (cable) await attachTransport(new Transport(cable));
-      else if (devices.some((d) => d.productId === PRODUCT_DONGLE)) throw new ConnectFailure({ kind: "dongle" });
-      // The AppImages pick the device themselves: nothing picked means no cable is plugged in.
-      else if (navigator.userAgent.includes("Electron")) throw new ConnectFailure({ kind: "no-cable" });
+    (devices: HIDDevice[]) => {
+      if (attaching.current) return attaching.current;
+      const attempt = (async () => {
+        // Only the cable: the dongle answers no configuration command (it replies with zeros).
+        const cable = devices.find((d) => d.productId === PRODUCT_WIRED);
+        if (cable) await attachTransport(new Transport(cable));
+        else if (devices.some((d) => d.productId === PRODUCT_DONGLE)) throw new ConnectFailure({ kind: "dongle" });
+        // The AppImages pick the device themselves: nothing picked means no cable is plugged in.
+        else if (navigator.userAgent.includes("Electron")) throw new ConnectFailure({ kind: "no-cable" });
+      })().finally(() => {
+        attaching.current = null;
+      });
+      attaching.current = attempt;
+      return attempt;
     },
     [attachTransport],
   );
