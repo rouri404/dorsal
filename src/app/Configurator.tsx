@@ -307,7 +307,12 @@ function Option<T extends string | number>(props: { label: string; value: T; opt
 
 function Status({ status }: { status: { ok: boolean; text: string } | null }) {
   if (!status) return null;
-  return <p className={cn("text-xs", status.ok ? "text-positive" : "text-red-400")}>{status.text}</p>;
+  return (
+    <p className={cn("flex items-center gap-1.5 text-xs", status.ok ? "text-positive" : "text-red-400")}>
+      {status.ok ? <Check className="size-3.5 shrink-0" /> : <TriangleAlert className="size-3.5 shrink-0" />}
+      {status.text}
+    </p>
+  );
 }
 
 function IconButton({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: ReactNode }) {
@@ -501,14 +506,14 @@ function KeysSection(props: { layer: Layer; setLayer: (l: Layer) => void; select
   const assign = (value: KeyValue) => {
     if (selected === null) return;
     const pos = selected;
-    run(name(pos), async () => {
+    run(tr("Tecla alterada", "Key changed"), async () => {
       const ok = await write(pos, value);
       if (ok) remember([[pos, value]]);
       return ok;
     });
   };
   const restoreAll = () =>
-    run(tr(`Restaurar ${editedPositions.length} tecla(s)`, `Restore ${editedPositions.length} key(s)`), async () => {
+    run(editedPositions.length === 1 ? tr("Tecla restaurada", "Key restored") : tr(`${editedPositions.length} teclas restauradas`, `${editedPositions.length} keys restored`), async () => {
       const done: [number, KeyValue][] = [];
       try {
         for (const pos of editedPositions) {
@@ -646,7 +651,7 @@ function LightSection(props: { main: LightSetting | undefined; setMain: (l: Ligh
   const set = (p: Partial<LightSetting>) => props.setMain({ ...main, ...p });
   const setS = (p: Partial<LightSetting>) => props.setSide({ ...side, ...p });
   const apply = () =>
-    run(tr("Aplicar iluminação", "Apply lighting"), async () => {
+    run(tr("Iluminação aplicada", "Lighting applied"), async () => {
       if (mainDirty && !(await kb.setLight(main))) return false;
       if (sideDirty && !(await kb.setSideLight(side))) return false;
       if (!kb.t.dryRun) patch({ light: main, sideLight: side });
@@ -807,7 +812,7 @@ function SystemSection() {
 
   // Reads everything fresh, then saves it: a backup must not come from the cache.
   const backup = () =>
-    run("Backup", async () => {
+    run(tr("Backup salvo", "Backup saved"), async () => {
       const data = {
         createdAt: new Date().toISOString(),
         identity,
@@ -839,7 +844,7 @@ function SystemSection() {
             primary
             disabled={busy || !responseDirty}
             onClick={() =>
-              save(tr("Resposta", "Response"), async () => (rate !== snapshot.reportRate ? await kb.setReportRate(rate!) : true) && (debounce !== snapshot.debounce ? await kb.setDebounce(debounce!) : true), {
+              save(tr("Resposta salva", "Response saved"), async () => (rate !== snapshot.reportRate ? await kb.setReportRate(rate!) : true) && (debounce !== snapshot.debounce ? await kb.setDebounce(debounce!) : true), {
                 reportRate: rate,
                 debounce,
               })
@@ -861,7 +866,7 @@ function SystemSection() {
               {minutes(tr("Desliga o rádio no Bluetooth", "Radio off on Bluetooth"), "btDeepSeconds")}
             </div>
             <div className="mt-auto grid">
-              <BigButton primary disabled={busy || !sleepDirty} onClick={() => save(tr("Bateria", "Battery"), () => kb.setSleep(sleep), { sleep })}>
+              <BigButton primary disabled={busy || !sleepDirty} onClick={() => save(tr("Bateria salva", "Battery saved"), () => kb.setSleep(sleep), { sleep })}>
                 {tr("Salvar", "Save")}
               </BigButton>
             </div>
@@ -896,7 +901,7 @@ function SystemSection() {
             holdingLabel={<span className="text-white">{tr("Continue segurando…", "Keep holding…")}</span>}
             completeLabel={<span className="text-white">{tr("Restaurando…", "Resetting…")}</span>}
             onHoldComplete={() =>
-              run(tr("Reset de fábrica", "Factory reset"), async () => {
+              run(tr("Teclado restaurado de fábrica", "Keyboard reset to factory settings"), async () => {
                 try {
                   const ok = await kb.factoryReset();
                   // The firmware needs a moment before it answers again.

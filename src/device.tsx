@@ -285,19 +285,25 @@ export function useAction() {
   const lang = useLang();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
-  const run = useCallback(async (label: string, fn: () => Promise<boolean | void>) => {
-    setBusy(true);
-    setStatus(null);
-    try {
-      const ok = (await fn()) !== false;
-      setStatus({ ok, text: ok ? `${label}: ok` : `${label}: ${lang === "en" ? "the keyboard did not confirm" : "o teclado não confirmou"}` });
-      return ok;
-    } catch (e) {
-      setStatus({ ok: false, text: `${label}: ${e instanceof Error ? e.message : String(e)}` });
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }, []);
+  /** `done` is what to say when it works, as a whole sentence ("Lighting applied"). */
+  const run = useCallback(
+    async (done: string, fn: () => Promise<boolean | void>) => {
+      const en = lang === "en";
+      setBusy(true);
+      setStatus(null);
+      try {
+        const ok = (await fn()) !== false;
+        setStatus({ ok, text: ok ? done : en ? "The keyboard did not confirm. Try again." : "O teclado não confirmou. Tente de novo." });
+        return ok;
+      } catch (e) {
+        const detail = e instanceof Error ? e.message : String(e);
+        setStatus({ ok: false, text: `${en ? "It did not work" : "Não deu certo"}: ${detail}` });
+        return false;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [lang],
+  );
   return { busy, status, run };
 }
