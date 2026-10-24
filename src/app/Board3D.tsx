@@ -546,7 +546,8 @@ class BoardScene {
     this.pivot.add(bezel);
     this.screenTexture = new THREE.CanvasTexture(screen);
     this.screenTexture.colorSpace = THREE.SRGBColorSpace;
-    this.screenTexture.magFilter = THREE.NearestFilter;
+    // Smoothed, as the tiny panel looks: its pixels are too small to see as blocks.
+    this.screenTexture.magFilter = THREE.LinearFilter;
     const display = new THREE.Mesh(new THREE.PlaneGeometry(0.76, 0.76), new THREE.MeshBasicMaterial({ map: this.screenTexture, toneMapped: false }));
     display.rotation.x = -Math.PI / 2;
     display.position.set(sAt.x, 0.622, sAt.z);

@@ -131,7 +131,9 @@ export function Screen3D({ screen, className, fallback }: { screen: HTMLCanvasEl
     board.add(bezel);
     const screenTex = new THREE.CanvasTexture(screen);
     screenTex.colorSpace = THREE.SRGBColorSpace;
-    screenTex.magFilter = THREE.NearestFilter;
+    // The 128 × 128 image is shown far larger than the 0.85" panel, whose pixels the eye cannot
+    // pick out: smooth it rather than drawing each pixel as a block.
+    screenTex.magFilter = THREE.LinearFilter;
     screenTex.minFilter = THREE.LinearFilter;
     const display = new THREE.Mesh(new THREE.PlaneGeometry(0.74, 0.74), new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false }));
     display.rotation.x = -Math.PI / 2;
