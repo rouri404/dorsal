@@ -196,7 +196,7 @@ function Hero() {
           <ButtonLink href={appPath(lang)} onClick={go(appPath(lang))} variant="primary" size="lg">
             <Globe className="size-4" /> {tr("Usar no navegador", "Use it in the browser")}
           </ButtonLink>
-          <ButtonLink href={APPIMAGE} variant="outline" size="lg">
+          <ButtonLink href={APPIMAGE} download={APPIMAGE_FILE} variant="outline" size="lg">
             <Download className="size-4" /> {tr("Baixar o AppImage", "Download the AppImage")}
           </ButtonLink>
         </div>
@@ -350,7 +350,7 @@ function Mini() {
               "Dorsal Screen is a small window with the screen in 3D, the zoom and two buttons: choose the image and send.",
             )}
           </p>
-          <ButtonLink href={MINI_APPIMAGE} variant="outline" size="lg" className="w-fit">
+          <ButtonLink href={MINI_APPIMAGE} download={MINI_FILE} variant="outline" size="lg" className="w-fit">
             <Download className="size-4" /> {tr("Baixar o Dorsal Screen", "Download Dorsal Screen")}
           </ButtonLink>
         </ScrollReveal>
@@ -402,10 +402,10 @@ function Install() {
                 </h4>
                 <CopyCommand command={`chmod +x ${APPIMAGE_FILE} && ./${APPIMAGE_FILE}`} />
                 <div className="mt-auto flex flex-wrap gap-2">
-                  <ButtonLink href={APPIMAGE} variant="secondary" size="md">
+                  <ButtonLink href={APPIMAGE} download={APPIMAGE_FILE} variant="secondary" size="md">
                     {PRODUCT}
                   </ButtonLink>
-                  <ButtonLink href={MINI_APPIMAGE} variant="ghost" size="md">
+                  <ButtonLink href={MINI_APPIMAGE} download={MINI_FILE} variant="ghost" size="md">
                     Dorsal Screen
                   </ButtonLink>
                 </div>

@@ -31,6 +31,8 @@ Each is about 135 MB. The landing page links to `<VITE_DOWNLOAD_BASE>/Dorsal-<ve
 - **On a release page (recommended)**: attach both files to a GitHub release and set `VITE_DOWNLOAD_BASE` to its download URL, such as `https://github.com/<user>/dorsal/releases/download/v0.1.0`. Large binaries stay out of the site and of the repository.
 - **On the site itself**: leave `VITE_DOWNLOAD_BASE` empty and publish the files at the site's root. Check your host's limit on file size first.
 
+Locally, `npm run dev` and `npm run preview` serve the AppImages from `release/` and `release-mini/` at those same paths, so the download buttons work before anything is published.
+
 When the version changes, update `version` in `package.json` and `VERSION` in `src/landing/LandingApp.tsx`.
 
 ## After each deploy
