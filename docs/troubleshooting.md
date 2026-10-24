@@ -38,8 +38,8 @@ Each GIF frame is composited over the previous ones, honouring the "restore to b
 
 ## The AppImage does not start
 
-- Make it executable: `chmod +x X85-Configurator-<version>.AppImage`.
-- AppImages need FUSE. If yours does not have it, run `./X85-Configurator-<version>.AppImage --appimage-extract-and-run`.
+- Make it executable: `chmod +x Dorsal-<version>.AppImage`.
+- AppImages need FUSE. If yours does not have it, run `./Dorsal-<version>.AppImage --appimage-extract-and-run`.
 
 ## The last image is not shown
 

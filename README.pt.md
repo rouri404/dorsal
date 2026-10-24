@@ -31,7 +31,7 @@ npm run dev        # http://localhost:5173, no Chrome, Edge, Chromium ou Brave
 
 O X85 Pro é configurado oficialmente pelo **qmk.top**, um site que fala com o teclado via WebHID, e por um executável de Windows. No Linux, nenhum dos dois funciona: o sistema só deixa o root abrir os dispositivos `hidraw`. Além disso, o firmware do X85 (ID **3451**) não está no catálogo do site, e o editor da tela nem aparece.
 
-O **Dorsal** reimplementa o protocolo do teclado do zero, a partir de engenharia reversa para interoperabilidade, e entrega o configurador completo em três formatos com o mesmo código: um **site** que roda no navegador, um **AppImage** com janela própria e o **X85 Screen**, uma janela pequena só para a tela.
+O **Dorsal** reimplementa o protocolo do teclado do zero, a partir de engenharia reversa para interoperabilidade, e entrega o configurador completo em três formatos com o mesmo código: um **site** que roda no navegador, um **AppImage** com janela própria e o **Dorsal Screen**, uma janela pequena só para a tela.
 
 **Funcionalidades:**
 
@@ -42,15 +42,15 @@ O **Dorsal** reimplementa o protocolo do teclado do zero, a partir de engenharia
 - **Teclado em 3D:** modelo fiel ao produto (degradê das teclas, knob, TFT ao vivo), com uma câmera que vai até o que cada seção edita.
 - **Dois idiomas:** português e inglês, incluindo os nomes das teclas, funções e efeitos.
 
-### X85 Screen
+### Dorsal Screen
 
-<img src="public/landing/mini.png" alt="X85 Screen: a tela do teclado em 3D, o zoom e os botões de enviar" width="300" align="right">
+<img src="public/landing/mini.png" alt="Dorsal Screen: a tela do teclado em 3D, o zoom e os botões de enviar" width="300" align="right">
 
-Só quer trocar a imagem do teclado? O **X85 Screen** é uma janela pequena que faz só isso: escolher uma imagem ou um GIF, enquadrar na tela em 3D e enviar. Ele usa o mesmo editor de tela do configurador, mas não lê as outras configurações do teclado, então abre mais rápido.
+Só quer trocar a imagem do teclado? O **Dorsal Screen** é uma janela pequena que faz só isso: escolher uma imagem ou um GIF, enquadrar na tela em 3D e enviar. Ele usa o mesmo editor de tela do configurador, mas não lê as outras configurações do teclado, então abre mais rápido.
 
-- **AppImage:** `npm run appimage:mini` gera `release-mini/X85-Screen-<versão>.AppImage`.
+- **AppImage:** `npm run appimage:mini` gera `release-mini/Dorsal-Screen-<versão>.AppImage`.
 - **Navegador:** [`dorsal.cotoo.dev/mini.html`](https://dorsal.cotoo.dev/mini.html), com `?lang=pt` ou `?lang=en`.
-- **Detalhes:** [`docs/x85-screen.md`](docs/x85-screen.md) (em inglês).
+- **Detalhes:** [`docs/dorsal-screen.md`](docs/dorsal-screen.md) (em inglês).
 
 <br clear="right">
 
@@ -63,7 +63,7 @@ Os guias estão em inglês:
 | [Arquitetura](docs/architecture.md) | Rotas, camada do dispositivo, transporte, envio de imagens, o teclado 3D, idiomas, Electron |
 | [Desenvolvimento](docs/development.md) | Ambiente, scripts, variáveis, modos demonstração e desenvolvedor, testes |
 | [Publicação](docs/deployment.md) | Publicar em `dorsal.cotoo.dev` e distribuir os AppImages |
-| [X85 Screen](docs/x85-screen.md) | O app pequeno para a tela |
+| [Dorsal Screen](docs/dorsal-screen.md) | O app pequeno para a tela |
 | [Problemas comuns](docs/troubleshooting.md) | Teclado não encontrado, envio parado, 3D lento |
 
 O protocolo está documentado em [`docs/protocol.md`](docs/protocol.md), com cada comando confirmado em leituras do teclado real.
@@ -84,7 +84,7 @@ O protocolo está documentado em [`docs/protocol.md`](docs/protocol.md), com cad
 1. **Regra de acesso:** copie `udev/70-attack-shark-x85.rules` para `/etc/udev/rules.d/`, recarregue o udev e reconecte o cabo. No Fedora Silverblue o `/etc` é gravável; não precisa de rpm-ostree.
 2. **Dependências:** `npm install` (Node 22 ou mais novo).
 3. **Site:** `npm run dev` e abra o endereço num navegador com WebHID.
-4. **AppImage:** `npm run appimage`, depois `chmod +x release/X85-Configurator-0.1.0.AppImage` e abra o arquivo.
+4. **AppImage:** `npm run appimage`, depois `chmod +x release/Dorsal-0.1.0.AppImage` e abra o arquivo.
 
 </details>
 

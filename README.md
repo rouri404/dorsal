@@ -31,7 +31,7 @@ npm run dev        # http://localhost:5173, in Chrome, Edge, Chromium or Brave
 
 The X85 Pro is officially configured through **qmk.top**, a website that talks to the keyboard over WebHID, and through a Windows executable. On Linux neither works: the system only lets root open `hidraw` devices. On top of that, the X85's firmware (ID **3451**) is missing from the site's catalog, so the screen editor never shows up.
 
-**Dorsal** reimplements the keyboard's protocol from scratch, through reverse engineering for interoperability, and ships the full configurator in three forms from the same code: a **website** that runs in the browser, an **AppImage** with its own window, and **X85 Screen**, a small window just for the screen.
+**Dorsal** reimplements the keyboard's protocol from scratch, through reverse engineering for interoperability, and ships the full configurator in three forms from the same code: a **website** that runs in the browser, an **AppImage** with its own window, and **Dorsal Screen**, a small window just for the screen.
 
 **Features:**
 
@@ -42,15 +42,15 @@ The X85 Pro is officially configured through **qmk.top**, a website that talks t
 - **3D keyboard:** a model faithful to the product (gradient keycaps, knob, live TFT), with a camera that moves to whatever each section edits.
 - **Two languages:** Portuguese and English, key, function and effect names included.
 
-### X85 Screen
+### Dorsal Screen
 
-<img src="public/landing/mini.png" alt="X85 Screen: the keyboard's screen in 3D, the zoom and the send buttons" width="300" align="right">
+<img src="public/landing/mini.png" alt="Dorsal Screen: the keyboard's screen in 3D, the zoom and the send buttons" width="300" align="right">
 
-Only want to change the picture on the keyboard? **X85 Screen** is a small window that does just that: choose an image or a GIF, frame it on the 3D screen, and send it. It shares the screen editor with the configurator, but skips reading the keyboard's other settings, so it opens faster.
+Only want to change the picture on the keyboard? **Dorsal Screen** is a small window that does just that: choose an image or a GIF, frame it on the 3D screen, and send it. It shares the screen editor with the configurator, but skips reading the keyboard's other settings, so it opens faster.
 
-- **AppImage:** `npm run appimage:mini` builds `release-mini/X85-Screen-<version>.AppImage`.
+- **AppImage:** `npm run appimage:mini` builds `release-mini/Dorsal-Screen-<version>.AppImage`.
 - **Browser:** [`dorsal.cotoo.dev/mini.html`](https://dorsal.cotoo.dev/mini.html), with `?lang=en` or `?lang=pt`.
-- **Details:** [`docs/x85-screen.md`](docs/x85-screen.md).
+- **Details:** [`docs/dorsal-screen.md`](docs/dorsal-screen.md).
 
 <br clear="right">
 
@@ -61,7 +61,7 @@ Only want to change the picture on the keyboard? **X85 Screen** is a small windo
 | [Architecture](docs/architecture.md) | Routes, device layer, transport, screen pipeline, the 3D board, languages, Electron shell |
 | [Development](docs/development.md) | Setup, scripts, environment variables, demo and developer modes, tests |
 | [Deployment](docs/deployment.md) | Publishing on `dorsal.cotoo.dev` and distributing the AppImages |
-| [X85 Screen](docs/x85-screen.md) | The mini app for the TFT |
+| [Dorsal Screen](docs/dorsal-screen.md) | The mini app for the TFT |
 | [Troubleshooting](docs/troubleshooting.md) | Keyboard not found, stalled uploads, slow 3D |
 
 The protocol is documented in [`docs/protocol.md`](docs/protocol.md) (in Portuguese), with every command confirmed against the real keyboard.
@@ -82,7 +82,7 @@ The protocol is documented in [`docs/protocol.md`](docs/protocol.md) (in Portugu
 1. **Access rule:** copy `udev/70-attack-shark-x85.rules` to `/etc/udev/rules.d/`, reload udev and replug the cable. On Fedora Silverblue `/etc` is writable; no rpm-ostree needed.
 2. **Dependencies:** `npm install` (Node 22 or newer).
 3. **Website:** `npm run dev` and open the address in a browser with WebHID.
-4. **AppImage:** `npm run appimage`, then `chmod +x release/X85-Configurator-0.1.0.AppImage` and open the file.
+4. **AppImage:** `npm run appimage`, then `chmod +x release/Dorsal-0.1.0.AppImage` and open the file.
 
 </details>
 

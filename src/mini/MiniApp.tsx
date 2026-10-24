@@ -1,4 +1,4 @@
-// X85 Screen: a small widget that only edits the keyboard's TFT.
+// Dorsal Screen: a small widget that only edits the keyboard's TFT.
 // Same protocol and upload path as the full configurator, one screen of controls.
 
 import { useEffect, useRef, type ReactNode } from "react";
@@ -30,7 +30,7 @@ export function MiniApp() {
       <main className="relative flex h-[600px] w-[420px] flex-col overflow-hidden rounded-[24px] border border-white/[0.07] bg-[#101112] px-5 pb-4 pt-4 text-neutral-100 select-none">
         {/* Top bar doubles as the window's drag handle. */}
         <header className="relative z-10 flex h-9 items-center justify-between [-webkit-app-region:drag]">
-          <span className="text-sm text-neutral-400">X85 Screen</span>
+          <span className="text-sm text-neutral-400">Dorsal Screen</span>
           {IN_APP && (
             <button
               type="button"

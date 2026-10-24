@@ -23,8 +23,8 @@ Then unplug and replug the keyboard.
 | `npm test` | Vitest: protocol, layout, factory key map and screen conversion |
 | `npm run typecheck` | Type check only |
 | `npm run electron` | Build and open the configurator in an Electron window |
-| `npm run appimage` | `release/X85-Configurator-<version>.AppImage` |
-| `npm run appimage:mini` | `release-mini/X85-Screen-<version>.AppImage` |
+| `npm run appimage` | `release/Dorsal-<version>.AppImage` |
+| `npm run appimage:mini` | `release-mini/Dorsal-Screen-<version>.AppImage` |
 
 ## Environment
 

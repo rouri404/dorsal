@@ -3,14 +3,14 @@
 Dorsal is one web application with two entry points, packaged by Electron for the desktop:
 
 - **`index.html`** — the site: the landing page and the configurator, chosen by the route.
-- **`mini.html`** — X85 Screen, the mini app for the TFT ([details](x85-screen.md)).
+- **`mini.html`** — Dorsal Screen, the mini app for the TFT ([details](dorsal-screen.md)).
 
 ```mermaid
 flowchart LR
     subgraph UI["Pages"]
         L["Landing<br/>src/landing"]
         C["Configurator<br/>src/app"]
-        M["X85 Screen<br/>src/mini"]
+        M["Dorsal Screen<br/>src/mini"]
     end
     C --> D["DeviceProvider<br/>src/device.tsx"]
     M --> D
@@ -31,7 +31,7 @@ flowchart LR
 | `/` | `/en` | Landing page |
 | `/app/tela`, `/app/teclas`, `/app/iluminacao`, `/app/sistema` | `/en/app/screen`, `/keys`, `/lighting`, `/system` | Configurator |
 | `/app/log` | `/en/app/log` | Packet log (developer mode only) |
-| `/mini.html` | `/mini.html?lang=en` | X85 Screen |
+| `/mini.html` | `/mini.html?lang=en` | Dorsal Screen |
 
 Navigation uses the History API. Switching language crossfades with the View Transitions API and keeps the scroll position; moving between pages crossfades and starts at the top.
 

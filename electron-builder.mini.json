@@ -1,6 +1,6 @@
 {
-  "appId": "dev.x85.screen",
-  "productName": "X85 Screen",
+  "appId": "dev.cotoo.dorsal.screen",
+  "productName": "Dorsal Screen",
   "extraMetadata": {
     "main": "electron/mini.cjs"
   },
@@ -11,7 +11,7 @@
   "linux": {
     "target": "AppImage",
     "category": "Utility",
-    "artifactName": "X85-Screen-${version}.AppImage",
+    "artifactName": "Dorsal-Screen-${version}.AppImage",
     "icon": "public/icon.png"
   },
   "directories": {

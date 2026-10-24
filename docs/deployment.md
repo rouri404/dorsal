@@ -22,11 +22,11 @@ The site lives at **[dorsal.cotoo.dev](https://dorsal.cotoo.dev)**. It is a stat
 ## The AppImages
 
 ```bash
-npm run appimage        # release/X85-Configurator-<version>.AppImage
-npm run appimage:mini   # release-mini/X85-Screen-<version>.AppImage
+npm run appimage        # release/Dorsal-<version>.AppImage
+npm run appimage:mini   # release-mini/Dorsal-Screen-<version>.AppImage
 ```
 
-Each is about 135 MB. The landing page links to `<VITE_DOWNLOAD_BASE>/X85-Configurator-<version>.AppImage` and `<VITE_DOWNLOAD_BASE>/X85-Screen-<version>.AppImage`:
+Each is about 135 MB. The landing page links to `<VITE_DOWNLOAD_BASE>/Dorsal-<version>.AppImage` and `<VITE_DOWNLOAD_BASE>/Dorsal-Screen-<version>.AppImage`:
 
 - **On a release page (recommended)**: attach both files to a GitHub release and set `VITE_DOWNLOAD_BASE` to its download URL, such as `https://github.com/<user>/dorsal/releases/download/v0.1.0`. Large binaries stay out of the site and of the repository.
 - **On the site itself**: leave `VITE_DOWNLOAD_BASE` empty and publish the files at the site's root. Check your host's limit on file size first.
@@ -37,7 +37,7 @@ When the version changes, update `version` in `package.json` and `VERSION` in `s
 
 - [ ] `/` and `/en` open the landing page in each language.
 - [ ] `/app/tela` and `/en/app/keys` open the configurator; `?demo` works without a keyboard.
-- [ ] `/mini.html` opens X85 Screen.
+- [ ] `/mini.html` opens Dorsal Screen.
 - [ ] The download buttons reach both AppImages.
 - [ ] `/robots.txt` and `/sitemap.xml` name `dorsal.cotoo.dev`.
 - [ ] A shared link shows the preview image (`/og.png`).

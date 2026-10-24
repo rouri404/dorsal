@@ -25,8 +25,8 @@ const VERSION = "0.1.0";
 // Where the AppImages are downloaded from: the site's root by default, or another host
 // (a release page, a CDN) set in VITE_DOWNLOAD_BASE at build time.
 const DOWNLOAD_BASE = (import.meta.env.VITE_DOWNLOAD_BASE ?? "").replace(/\/$/, "");
-const APPIMAGE_FILE = `X85-Configurator-${VERSION}.AppImage`;
-const MINI_FILE = `X85-Screen-${VERSION}.AppImage`;
+const APPIMAGE_FILE = `Dorsal-${VERSION}.AppImage`;
+const MINI_FILE = `Dorsal-Screen-${VERSION}.AppImage`;
 const APPIMAGE = `${DOWNLOAD_BASE}/${APPIMAGE_FILE}`;
 const MINI_APPIMAGE = `${DOWNLOAD_BASE}/${MINI_FILE}`;
 const UDEV =
@@ -343,15 +343,15 @@ function Mini() {
           <h2 className="text-[32px] font-semibold leading-[1.1] tracking-[-0.025em] sm:text-[40px]">{tr("Só quer trocar a imagem? Tem um app só para isso.", "Only want to change the image? There is an app just for that.")}</h2>
           <p className="text-lg text-neutral-400">
             {tr(
-              "O X85 Screen é uma janela pequena com a tela em 3D, o zoom e dois botões: escolher a imagem e enviar.",
-              "X85 Screen is a small window with the screen in 3D, the zoom and two buttons: choose the image and send.",
+              "O Dorsal Screen é uma janela pequena com a tela em 3D, o zoom e dois botões: escolher a imagem e enviar.",
+              "Dorsal Screen is a small window with the screen in 3D, the zoom and two buttons: choose the image and send.",
             )}
           </p>
           <ButtonLink href={MINI_APPIMAGE} variant="outline" size="lg" className="w-fit">
-            <Download className="size-4" /> {tr("Baixar o X85 Screen", "Download X85 Screen")}
+            <Download className="size-4" /> {tr("Baixar o Dorsal Screen", "Download Dorsal Screen")}
           </ButtonLink>
         </div>
-        <img src="/landing/mini.png" alt={tr("O X85 Screen: a tela do teclado em 3D, o zoom e os botões de enviar", "X85 Screen: the keyboard's screen in 3D, the zoom and the send buttons")} loading="lazy" className="mx-auto w-full max-w-[420px]" />
+        <img src="/landing/mini.png" alt={tr("O Dorsal Screen: a tela do teclado em 3D, o zoom e os botões de enviar", "Dorsal Screen: the keyboard's screen in 3D, the zoom and the send buttons")} loading="lazy" className="mx-auto w-full max-w-[420px]" />
       </div>
     </section>
   );
@@ -399,7 +399,7 @@ function Install() {
                     {PRODUCT}
                   </ButtonLink>
                   <ButtonLink href={MINI_APPIMAGE} variant="ghost" size="md">
-                    X85 Screen
+                    Dorsal Screen
                   </ButtonLink>
                 </div>
               </div>

@@ -23,7 +23,7 @@ protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: t
 const screenshotPath = process.env.X85_SCREENSHOT;
 // X85_NO_HID=1 hides the keyboard (used to capture the "not connected" state).
 const hidDisabled = process.env.X85_NO_HID === "1";
-// X85_MINI=1 opens the mini screen app (set by electron/mini.cjs in the X85 Screen AppImage).
+// X85_MINI=1 opens the mini screen app (set by electron/mini.cjs in the Dorsal Screen AppImage).
 const mini = process.env.X85_MINI === "1";
 
 /** Files from dist; any other path is a route of the single-page app. */
@@ -62,7 +62,7 @@ async function createWindow() {
   const win = new BrowserWindow({
     ...(mini
       ? // The widget draws its own rounded card on a transparent, frameless window.
-        { width: 440, height: 620, resizable: false, frame: false, transparent: true, backgroundColor: "#00000000", title: "X85 Screen" }
+        { width: 440, height: 620, resizable: false, frame: false, transparent: true, backgroundColor: "#00000000", title: "Dorsal Screen" }
       : { width: 1280, height: 860, minWidth: 420, backgroundColor: "#0a0b0c", title: "Dorsal" }),
     show: !screenshotPath,
     autoHideMenuBar: true,
