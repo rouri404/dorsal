@@ -66,7 +66,7 @@ Os guias estão em inglês:
 | [Dorsal Screen](docs/dorsal-screen.md) | O app pequeno para a tela |
 | [Problemas comuns](docs/troubleshooting.md) | Teclado não encontrado, envio parado, 3D lento |
 
-O protocolo está documentado em [`docs/protocol.md`](docs/protocol.md), com cada comando confirmado em leituras do teclado real.
+O protocolo está documentado em [`docs/protocol.md`](docs/protocol.md) (em inglês), com as leituras confirmadas no teclado real.
 
 **Conteúdos principais:**
 - **Identificação**: IDs USB, interface de configuração e ID do firmware.

@@ -64,7 +64,7 @@ Only want to change the picture on the keyboard? **Dorsal Screen** is a small wi
 | [Dorsal Screen](docs/dorsal-screen.md) | The mini app for the TFT |
 | [Troubleshooting](docs/troubleshooting.md) | Keyboard not found, stalled uploads, slow 3D |
 
-The protocol is documented in [`docs/protocol.md`](docs/protocol.md) (in Portuguese), with every command confirmed against the real keyboard.
+The protocol is documented in [`docs/protocol.md`](docs/protocol.md), with the reads confirmed against the real keyboard.
 
 **Main topics:**
 - **Identification**: USB IDs, configuration interface and firmware ID.
