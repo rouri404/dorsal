@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Cable, Check, Clock, Copy, Crosshair, Download, ImagePlus, Minus, Plus, RotateCcw, ShieldCheck, Timer, Trash2, TriangleAlert, Upload, Usb } from "lucide-react";
 import { describeConnectError, useAction, useDevice, type ConnectError } from "../device";
+import { BackupError, applyRestore, isEmptyPlan, parseBackup, planRestore, readCurrent, type RestorePlan } from "../backup";
 import { FACTORY_BASE, FACTORY_FN_WIN } from "../layout/x85-factory";
 import { X85_KEYS, X85_VIRTUAL } from "../layout/x85";
 import { FUNCTIONS, HID_NAMES, KEY_GROUPS, isEmpty, keyValue, sameValue, type KeyValue } from "../protocol/keycodes";
@@ -791,6 +792,12 @@ function SystemSection() {
   const [debounce, setDebounce] = useState(snapshot.debounce);
   const [sleep, setSleep] = useState(snapshot.sleep);
   const [resetKey, setResetKey] = useState(0);
+  // Restoring a backup: the file is compared with the keyboard first, and the changes are shown
+  // for confirmation before anything is written.
+  const filePicker = useRef<HTMLInputElement>(null);
+  const [plan, setPlan] = useState<RestorePlan | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [restoreNote, setRestoreNote] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => setRate(snapshot.reportRate), [snapshot.reportRate]);
   useEffect(() => setDebounce(snapshot.debounce), [snapshot.debounce]);
   useEffect(() => setSleep(snapshot.sleep), [snapshot.sleep]);
@@ -800,6 +807,48 @@ function SystemSection() {
       const ok = await write();
       if (ok && !kb.t.dryRun) patch(p);
       return ok;
+    });
+  const openBackup = async (file: File) => {
+    setPlan(null);
+    setRestoreNote(null);
+    setChecking(true);
+    try {
+      const next = planRestore(parseBackup(await file.text()), await readCurrent(kb));
+      if (isEmptyPlan(next)) setRestoreNote({ ok: true, text: tr("O teclado já está igual ao backup.", "The keyboard already matches the backup.") });
+      else setPlan(next);
+    } catch (e) {
+      const reason = e instanceof BackupError ? e.reason : "not-backup";
+      setRestoreNote({
+        ok: false,
+        text:
+          reason === "other-keyboard"
+            ? tr("Esse backup é de outro teclado.", "This backup is from another keyboard.")
+            : tr("Esse arquivo não é um backup do Dorsal.", "This file is not a Dorsal backup."),
+      });
+    } finally {
+      setChecking(false);
+    }
+  };
+  const changes = (p: RestorePlan) =>
+    [
+      p.keys.length && (p.keys.length === 1 ? tr("1 tecla", "1 key") : tr(`${p.keys.length} teclas`, `${p.keys.length} keys`)),
+      p.fnKeys.length && (p.fnKeys.length === 1 ? tr("1 tecla do Fn", "1 Fn key") : tr(`${p.fnKeys.length} teclas do Fn`, `${p.fnKeys.length} Fn keys`)),
+      p.light && tr("luz das teclas", "key lighting"),
+      p.sideLight && tr("luz lateral", "side light"),
+      (p.reportRate !== undefined || p.debounce !== undefined) && tr("resposta", "response"),
+      p.sleep && tr("bateria", "battery"),
+    ]
+      .filter(Boolean)
+      .join(", ");
+  const restore = () =>
+    plan &&
+    run(tr("Backup restaurado", "Backup restored"), async () => {
+      try {
+        return await applyRestore(kb, plan);
+      } finally {
+        setPlan(null);
+        if (!kb.t.dryRun) await refresh();
+      }
     });
   const responseDirty = rate !== snapshot.reportRate || debounce !== snapshot.debounce;
   const sleepDirty = JSON.stringify(sleep) !== JSON.stringify(snapshot.sleep);
@@ -891,10 +940,44 @@ function SystemSection() {
         <p className="num text-xs text-neutral-500">
           {tr("Firmware", "Firmware")} {identity?.deviceId ?? "—"} · {tr("tela", "screen")} {snapshot.screen ? `${SCREEN_W} × ${SCREEN_H}` : "—"}
         </p>
-        <div className="mt-auto grid">
-          <BigButton disabled={busy} onClick={backup}>
-            <Download className="size-4" /> {tr("Baixar backup", "Download backup")}
-          </BigButton>
+        {plan ? (
+          <p className="text-sm text-neutral-300">
+            {tr("Vai mudar", "Will change")}: {changes(plan)}.
+          </p>
+        ) : (
+          restoreNote && <p className={cn("text-xs", restoreNote.ok ? "text-neutral-400" : "text-red-400")}>{restoreNote.text}</p>
+        )}
+        <input
+          ref={filePicker}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (f) void openBackup(f);
+          }}
+        />
+        <div className="mt-auto grid gap-2">
+          {plan ? (
+            <>
+              <BigButton primary disabled={busy} onClick={restore}>
+                <Upload className="size-4" /> {busy ? tr("Restaurando…", "Restoring…") : tr("Restaurar", "Restore")}
+              </BigButton>
+              <BigButton disabled={busy} onClick={() => setPlan(null)}>
+                {tr("Cancelar", "Cancel")}
+              </BigButton>
+            </>
+          ) : (
+            <>
+              <BigButton disabled={busy || checking} onClick={backup}>
+                <Download className="size-4" /> {tr("Baixar backup", "Download backup")}
+              </BigButton>
+              <BigButton disabled={busy || checking} onClick={() => filePicker.current?.click()}>
+                <Upload className="size-4" /> {checking ? tr("Comparando…", "Comparing…") : tr("Restaurar backup", "Restore backup")}
+              </BigButton>
+            </>
+          )}
         </div>
       </Card>
       <Card title={tr("Restaurar padrão de fábrica", "Factory reset")}>

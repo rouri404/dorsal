@@ -38,7 +38,7 @@ The X85 Pro is officially configured through **qmk.top**, a website that talks t
 - **TFT screen:** sends images and GIFs of up to 60 frames (128 × 128, RGB565), framed by dragging and zooming, and sets the keyboard's clock. Uploads keep going with the window in the background.
 - **Keys:** remaps the normal layer and the layer while holding Fn, plus the knob (press and turn). Changed keys stand out, with a way back to factory defaults.
 - **Lighting:** the 21 key effects and the 5 side-light effects, with colour, brightness and speed, animated on the 3D model before you apply them.
-- **System:** polling rate (125 to 8000 Hz), debounce, sleep and deep sleep on 2.4G and Bluetooth, JSON backup and factory reset.
+- **System:** polling rate (125 to 8000 Hz), debounce, sleep and deep sleep on 2.4G and Bluetooth, JSON backup and restore, and factory reset.
 - **3D keyboard:** a model faithful to the product (gradient keycaps, knob, live TFT), with a camera that moves to whatever each section edits.
 - **Two languages:** Portuguese and English, key, function and effect names included.
 

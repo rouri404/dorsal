@@ -38,7 +38,7 @@ O **Dorsal** reimplementa o protocolo do teclado do zero, a partir de engenharia
 - **Tela TFT:** envia imagens e GIFs de até 60 quadros (128 × 128, RGB565), com enquadramento por arraste e zoom, e acerta o relógio do teclado. O envio continua com a janela em segundo plano.
 - **Teclas:** remapeia a camada normal e a camada segurando Fn, além do knob (apertar e girar). As teclas trocadas aparecem em destaque, com retorno ao padrão de fábrica.
 - **Iluminação:** os 21 efeitos das teclas e os 5 da luz lateral, com cor, brilho e velocidade, animados no modelo 3D antes de aplicar.
-- **Sistema:** taxa de polling (125 a 8000 Hz), debounce, repouso e sono profundo no 2.4G e no Bluetooth, backup em JSON e reset de fábrica.
+- **Sistema:** taxa de polling (125 a 8000 Hz), debounce, repouso e sono profundo no 2.4G e no Bluetooth, backup em JSON com restauração, e reset de fábrica.
 - **Teclado em 3D:** modelo fiel ao produto (degradê das teclas, knob, TFT ao vivo), com uma câmera que vai até o que cada seção edita.
 - **Dois idiomas:** português e inglês, incluindo os nomes das teclas, funções e efeitos.
 
