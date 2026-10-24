@@ -10,7 +10,7 @@ Dorsal Screen is a small window that only does one thing: put an image or a GIF 
 | --- | --- |
 | AppImage | `release-mini/Dorsal-Screen-<version>.AppImage` (built with `npm run appimage:mini`) |
 | Browser | [`dorsal.cotoo.dev/mini.html`](https://dorsal.cotoo.dev/mini.html), in Chrome, Edge, Chromium or Brave |
-| Language | The system's; `?lang=en` or `?lang=pt` in the browser |
+| Language | The system's; `?lang=en` or `?lang=pt` in the browser, `X85_LANG=en` or `X85_LANG=pt` in the AppImage |
 | Without a keyboard | `?demo` in the browser, or `X85_DEMO=1` for the AppImage |
 
 The AppImage opens a frameless, transparent 440 × 620 window; drag it by its top bar. The keyboard is found by itself when it is plugged in by cable.

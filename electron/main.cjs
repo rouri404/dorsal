@@ -51,10 +51,9 @@ function allowHid() {
 
 /** The configurator's route in the system's language; X85_TAB picks a section (tela, keys…). */
 function startPath() {
-  const en = !app.getLocale().toLowerCase().startsWith("pt");
+  const lang = process.env.X85_LANG ?? (app.getLocale().toLowerCase().startsWith("pt") ? "pt" : "en");
   if (mini) return "/mini.html";
-  const prefix = (process.env.X85_LANG ?? (en ? "en" : "pt")) === "en" ? "/en" : "";
-  return `${prefix}/app${process.env.X85_TAB ? `/${process.env.X85_TAB}` : ""}`;
+  return `${lang === "en" ? "/en" : ""}/app${process.env.X85_TAB ? `/${process.env.X85_TAB}` : ""}`;
 }
 
 async function createWindow() {
@@ -75,6 +74,8 @@ async function createWindow() {
   // X85_DEV=1 turns on developer mode (dry run and packet Log).
   // X85_SAMPLE=<image file> preloads it in the screen editor, for screenshots.
   const query = new URLSearchParams({
+    // The mini app has no language in its path: X85_LANG reaches it as ?lang.
+    ...(mini && process.env.X85_LANG ? { lang: process.env.X85_LANG } : {}),
     ...(process.env.X85_PREVIEW_UPLOAD ? { previewUpload: process.env.X85_PREVIEW_UPLOAD } : {}),
     ...(process.env.X85_DEMO === "1" ? { demo: "1" } : {}),
     ...(process.env.X85_DEV === "1" ? { dev: "1" } : {}),

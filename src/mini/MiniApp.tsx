@@ -50,7 +50,7 @@ export function MiniApp() {
           className="relative -mx-5 -mt-9 h-[344px] touch-none [mask-image:radial-gradient(ellipse_56%_50%_at_50%_50%,#000_45%,transparent_100%)]"
           style={{ cursor: source ? "grab" : "default" }}
           {...ed.handlers}
-          title={source ? "Arraste para posicionar, role para dar zoom" : undefined}
+          title={source ? tr("Arraste para posicionar, role para dar zoom", "Drag to position, scroll to zoom") : undefined}
         >
           <canvas ref={glow} width={32} height={32} className="pointer-events-none absolute left-1/2 top-[40%] h-44 w-60 -translate-x-1/2 opacity-60 blur-[44px]" aria-hidden />
           <Screen3D
