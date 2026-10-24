@@ -11,7 +11,7 @@ import type { LightSetting } from "../protocol/x85";
 import { useLang, useTr, type Lang } from "../i18n";
 import { keyShortName } from "../i18n/labels";
 import { navigate, pathOf } from "../router";
-import { Logo, PRODUCT } from "../brand";
+import { Logo, PRODUCT, SITE } from "../brand";
 import { cn } from "@/lib/utils";
 import { ButtonLink } from "@/components/motion/button/base";
 import { Tabs, TabsList, TabsTrigger } from "@/components/motion/tabs";
@@ -30,8 +30,6 @@ const APPIMAGE_FILE = `Dorsal-${VERSION}.AppImage`;
 const MINI_FILE = `Dorsal-Screen-${VERSION}.AppImage`;
 const APPIMAGE = `${DOWNLOAD_BASE}/${APPIMAGE_FILE}`;
 const MINI_APPIMAGE = `${DOWNLOAD_BASE}/${MINI_FILE}`;
-const UDEV =
-  `echo 'KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3151", ATTRS{idProduct}=="5002|5006", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/70-attack-shark-x85.rules && sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=hidraw`;
 
 const VIEWS: { id: Framing; pt: string; en: string; capPt: string; capEn: string }[] = [
   { id: "screen", pt: "Tela", en: "Screen", capPt: "A TFT mostra o relógio de fábrica ou a sua imagem.", capEn: "The TFT shows the factory clock or your image." },
@@ -362,9 +360,15 @@ function Mini() {
   );
 }
 
+/** The one command that gives Linux access to the keyboard: a short script on the site. */
+const UDEV_SCRIPT = `${SITE}/udev.sh`;
+const UDEV_COMMAND = `curl -fsSL ${UDEV_SCRIPT} | sudo sh`;
+
 function Install() {
   const lang = useLang();
   const tr = useTr();
+  const [which, setWhich] = useState<"full" | "mini">("full");
+  const file = which === "full" ? APPIMAGE_FILE : MINI_FILE;
   return (
     <section id="instalar" className="border-t border-white/[0.05]">
       <div className="mx-auto max-w-[1180px] px-5 py-20">
@@ -375,40 +379,60 @@ function Install() {
           </p>
         </ScrollReveal>
 
-        <div className="mt-12 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+        <div className="mt-12 flex flex-col gap-4">
           <Step n={1} delay={0} title={tr("Libere o teclado no Linux", "Give Linux access to the keyboard")}>
-            <p>
+            <p className="max-w-[72ch]">
               {tr(
-                "Por padrão, só o root fala com o teclado; é por isso que o qmk.top não funciona no Linux. Rode no terminal e reconecte o cabo:",
-                "By default only root can talk to the keyboard; that is why qmk.top does not work on Linux. Run this in a terminal and replug the cable:",
+                "Por padrão, só o root fala com o teclado; é por isso que o qmk.top não funciona no Linux. Rode no terminal, uma vez só, e reconecte o cabo:",
+                "By default only root can talk to the keyboard; that is why qmk.top does not work on Linux. Run this in a terminal, just once, and replug the cable:",
               )}
             </p>
-            <CopyCommand command={UDEV} />
+            <Terminal command={UDEV_COMMAND} />
+            <p className="text-sm text-neutral-500">
+              {tr("O script só cria a regra de acesso do udev. ", "The script only creates the udev access rule. ")}
+              <a href={UDEV_SCRIPT} target="_blank" rel="noreferrer" className="text-neutral-300 underline decoration-white/20 underline-offset-4 hover:text-white">
+                {tr("Ler o script", "Read the script")}
+              </a>
+            </p>
           </Step>
           <Step n={2} delay={0.14} title={tr("Escolha como abrir", "Choose how to open it")}>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-3 rounded-2xl bg-white/[0.03] p-4">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
+              <div className="flex flex-col gap-3 rounded-2xl bg-white/[0.03] p-5">
                 <h4 className="flex items-center gap-2 font-medium text-neutral-100">
                   <Globe className="size-4" /> {tr("No navegador", "In the browser")}
                 </h4>
-                <p className="text-sm">{tr("Chrome, Edge, Chromium ou Brave. Nada para instalar.", "Chrome, Edge, Chromium or Brave. Nothing to install.")}</p>
+                <p className="text-sm">
+                  {tr(
+                    "Nada para instalar. Abra no Chrome, Edge, Chromium ou Brave, clique em Conectar teclado e escolha Gaming Keyboard.",
+                    "Nothing to install. Open it in Chrome, Edge, Chromium or Brave, click Connect keyboard and pick Gaming Keyboard.",
+                  )}
+                </p>
                 <ButtonLink href={appPath(lang)} onClick={go(appPath(lang))} variant="primary" size="md" className="mt-auto">
                   {tr("Abrir o app", "Open the app")}
                 </ButtonLink>
               </div>
-              <div className="flex flex-col gap-3 rounded-2xl bg-white/[0.03] p-4">
-                <h4 className="flex items-center gap-2 font-medium text-neutral-100">
-                  <Download className="size-4" /> AppImage
-                </h4>
-                <CopyCommand command={`chmod +x ${APPIMAGE_FILE} && ./${APPIMAGE_FILE}`} />
-                <div className="mt-auto flex flex-wrap gap-2">
-                  <ButtonLink href={APPIMAGE} download={APPIMAGE_FILE} variant="secondary" size="md">
-                    {PRODUCT}
-                  </ButtonLink>
-                  <ButtonLink href={MINI_APPIMAGE} download={MINI_FILE} variant="ghost" size="md">
-                    Dorsal Screen
-                  </ButtonLink>
+              <div className="flex min-w-0 flex-col gap-3 rounded-2xl bg-white/[0.03] p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h4 className="flex items-center gap-2 font-medium text-neutral-100">
+                    <Download className="size-4" /> AppImage
+                  </h4>
+                  <Tabs value={which} onValueChange={(v) => setWhich(v as "full" | "mini")} variant="segment">
+                    <TabsList className="bg-white/[0.05]">
+                      <TabsTrigger value="full">{PRODUCT}</TabsTrigger>
+                      <TabsTrigger value="mini">Dorsal Screen</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 </div>
+                <p className="text-sm">
+                  {which === "full"
+                    ? tr("O app completo, numa janela própria.", "The full app, in its own window.")
+                    : tr("Só a tela do teclado, numa janela pequena.", "Just the keyboard's screen, in a small window.")}
+                </p>
+                <ButtonLink href={which === "full" ? APPIMAGE : MINI_APPIMAGE} download={file} variant="secondary" size="md" className="w-fit">
+                  <Download className="size-4" /> {file}
+                </ButtonLink>
+                <p className="text-sm">{tr("Depois de baixar, rode no terminal:", "Once downloaded, run in a terminal:")}</p>
+                <Terminal command={`chmod +x ~/Downloads/${file} && ~/Downloads/${file}`} />
               </div>
             </div>
           </Step>
@@ -434,13 +458,17 @@ function Step({ n, title, delay, children }: { n: number; title: string; delay: 
   );
 }
 
-/** A command to paste in a terminal; the copy button swaps its label when it is done. */
-function CopyCommand({ command }: { command: string }) {
+/** One command to paste in a terminal, with its copy button. */
+function Terminal({ command }: { command: string }) {
   const tr = useTr();
   const [state, setState] = useState("copy");
   return (
-    <div className="flex items-center gap-2 rounded-xl bg-black/50 py-1.5 pl-3 pr-1.5 ring-1 ring-white/[0.06]">
-      <code className="scrollbar-hide min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-[13px] leading-7 text-neutral-200">{command}</code>
+    <div className="flex min-w-0 items-center gap-2 rounded-xl bg-black/50 py-1.5 pl-4 pr-1.5 ring-1 ring-white/[0.06]">
+      {/* Wraps instead of scrolling, so the whole command is always in view. */}
+      <code className="min-w-0 flex-1 whitespace-pre-wrap py-1 font-mono [overflow-wrap:anywhere] text-[13px] leading-6 text-neutral-100">
+        <span className="select-none text-[#5fd0e6]">$ </span>
+        {command}
+      </code>
       <ActionSwapBlurButton
         size="sm"
         variant="ghost"
@@ -466,6 +494,12 @@ const QUESTIONS: [string, string, string, string][] = [
     "O site fala com o teclado pelo navegador (WebHID), e o Linux só deixa o root abrir esse tipo de dispositivo. A regra de acesso dá esse direito ao seu usuário. Com ela, até o qmk.top passa a abrir.",
     "Why did qmk.top not work on my Linux?",
     "The site talks to the keyboard through the browser (WebHID), and Linux only lets root open that kind of device. The access rule gives that right to your user. With it, even qmk.top opens.",
+  ],
+  [
+    "Preciso instalar algum driver ou biblioteca para usar no navegador?",
+    "Não. O navegador já fala com o teclado pelo WebHID: não há driver, extensão nem programa para instalar. No Linux só é preciso, uma vez, a regra de acesso do passo 1, que libera o dispositivo para o seu usuário. No Windows e no macOS, nem isso.",
+    "Do I need to install a driver or library to use it in the browser?",
+    "No. The browser talks to the keyboard through WebHID: there is no driver, extension or program to install. On Linux you only need, once, the access rule from step 1, which opens the device to your user. On Windows and macOS, not even that.",
   ],
   [
     "Funciona pelo dongle 2.4G?",

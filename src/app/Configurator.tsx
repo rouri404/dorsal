@@ -18,7 +18,7 @@ import { useLang, useTr, type Lang } from "../i18n";
 import { keyName, keyShortName, labelIn } from "../i18n/labels";
 import { navigate, pathOf, type Section } from "../router";
 import { isDevMode } from "../devMode";
-import { Logo, PRODUCT } from "../brand";
+import { Logo, PRODUCT, SITE } from "../brand";
 import { Board3D, type Framing } from "./Board3D";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/motion/tabs";
@@ -44,8 +44,8 @@ const ALL_POSITIONS = [...X85_KEYS.map((k) => k.pos), ...X85_VIRTUAL.map((v) => 
 const PRESETS = ["#fafffa", "#ff2a2a", "#ff8a00", "#ffe100", "#2aff6a", "#00d5ff", "#2a5bff", "#b02aff", "#ff2ad4"];
 const toHex = ({ r, g, b }: LightSetting["rgb"]) => "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
 const fromHex = (hex: string) => ({ r: parseInt(hex.slice(1, 3), 16), g: parseInt(hex.slice(3, 5), 16), b: parseInt(hex.slice(5, 7), 16) });
-const UDEV =
-  `echo 'KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3151", ATTRS{idProduct}=="5002|5006", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/70-attack-shark-x85.rules && sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=hidraw`;
+// One line: a short script on the site that creates the udev rule (public/udev.sh).
+const UDEV = `curl -fsSL ${SITE}/udev.sh | sudo sh`;
 
 type Layer = "base" | "fn";
 

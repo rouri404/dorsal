@@ -17,7 +17,7 @@ The site lives at **[dorsal.cotoo.dev](https://dorsal.cotoo.dev)**. It is a stat
 
 ### Routing
 
-`vercel.json` sends every path that is not a file to `index.html`, so `/en/app/keys` opens the configurator directly. Files keep their own paths: `/assets/*`, `/landing/*`, `/mini.html`, the icons, `og.png`, `robots.txt`, `sitemap.xml` and the AppImages.
+`vercel.json` sends every path that is not a file to `index.html`, so `/en/app/keys` opens the configurator directly. Files keep their own paths: `/assets/*`, `/landing/*`, `/mini.html`, the icons, `og.png`, `robots.txt`, `sitemap.xml`, `udev.sh` (the one-line Linux setup the landing page shows) and the AppImages.
 
 ## The AppImages
 

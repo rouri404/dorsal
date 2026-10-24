@@ -7,6 +7,12 @@
 - On Linux, the **udev rule** that lets your user open the keyboard (once):
 
 ```bash
+curl -fsSL https://dorsal.cotoo.dev/udev.sh | sudo sh
+```
+
+The script (`public/udev.sh`) writes `udev/70-attack-shark-x85.rules` to `/etc/udev/rules.d/` and reloads udev. From a clone, the same by hand:
+
+```bash
 sudo cp udev/70-attack-shark-x85.rules /etc/udev/rules.d/
 sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=hidraw
 ```
