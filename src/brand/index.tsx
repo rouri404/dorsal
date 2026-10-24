@@ -3,8 +3,8 @@
 /** Working name, until a final one is chosen. */
 export const PRODUCT = "Dorsal";
 
-/** Where the site lives. */
-export const SITE = "https://dorsal.cotoo.dev";
+/** Where the site lives (VITE_SITE_URL in .env). */
+export const SITE = (import.meta.env.VITE_SITE_URL || "https://dorsal.cotoo.dev").replace(/\/$/, "");
 
 /** The mark: a keycap with a dorsal fin cutting through its face. */
 export function Logo({ className }: { className?: string }) {

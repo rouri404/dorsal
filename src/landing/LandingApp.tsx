@@ -22,8 +22,13 @@ import { TextReveal } from "@/components/motion/text-reveal";
 import { SharedLayoutBg } from "@/components/motion/shared-layout-bg";
 
 const VERSION = "0.1.0";
-const APPIMAGE = `/X85-Configurator-${VERSION}.AppImage`;
-const MINI_APPIMAGE = `/X85-Screen-${VERSION}.AppImage`;
+// Where the AppImages are downloaded from: the site's root by default, or another host
+// (a release page, a CDN) set in VITE_DOWNLOAD_BASE at build time.
+const DOWNLOAD_BASE = (import.meta.env.VITE_DOWNLOAD_BASE ?? "").replace(/\/$/, "");
+const APPIMAGE_FILE = `X85-Configurator-${VERSION}.AppImage`;
+const MINI_FILE = `X85-Screen-${VERSION}.AppImage`;
+const APPIMAGE = `${DOWNLOAD_BASE}/${APPIMAGE_FILE}`;
+const MINI_APPIMAGE = `${DOWNLOAD_BASE}/${MINI_FILE}`;
 const UDEV =
   `echo 'KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3151", ATTRS{idProduct}=="5002|5006", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/70-attack-shark-x85.rules && sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=hidraw`;
 
@@ -388,7 +393,7 @@ function Install() {
                 <h4 className="flex items-center gap-2 font-medium text-neutral-100">
                   <Download className="size-4" /> AppImage
                 </h4>
-                <CopyCommand command={`chmod +x ${APPIMAGE.slice(1)} && ./${APPIMAGE.slice(1)}`} />
+                <CopyCommand command={`chmod +x ${APPIMAGE_FILE} && ./${APPIMAGE_FILE}`} />
                 <div className="mt-auto flex flex-wrap gap-2">
                   <ButtonLink href={APPIMAGE} variant="secondary" size="md">
                     {PRODUCT}

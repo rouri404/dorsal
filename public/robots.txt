@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://dorsal.cotoo.dev/sitemap.xml
