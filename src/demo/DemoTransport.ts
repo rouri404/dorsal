@@ -46,7 +46,13 @@ export class DemoTransport {
     const setSlot = (store: Uint8Array[], pos: number) => store[Math.floor(pos / 16)].set(p.slice(8, 12), (pos % 16) * 4);
     if (p[0] === 0x0a) setSlot(this.keymap, p[2]);
     if (p[0] === 0x10) setSlot(this.fn, p[3]);
-    if (p[0] === 0x07 || p[0] === 0x08) this.replies.set(p[0] | 0x80, p.slice());
+    // Lighting (0x07, 0x08) and sleep (0x11) are read back by the same command with bit 7 set,
+    // in the same layout as the write.
+    if (p[0] === 0x07 || p[0] === 0x08 || p[0] === 0x11) {
+      const reply = p.slice();
+      reply[0] |= 0x80;
+      this.replies.set(reply[0], reply);
+    }
   }
 
   private async exchange(cmd: ArrayLike<number>, opts: XferOptions, read: boolean): Promise<Uint8Array | undefined> {
