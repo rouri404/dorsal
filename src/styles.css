@@ -1,0 +1,161 @@
+@import "tailwindcss";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+
+/* Theme follows the system via a `.dark` class on <html> (see main.tsx). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * App style "framed sheet" (taste-skill, seed 1813211477): a tinted L-shaped frame holds the
+ * navigation; the work sits on a white sheet with a 1px edge. Colour lives on data only: the
+ * X85 teal marks edited keys, upload progress, the active tab and colour previews.
+ * beUI components read the shadcn names below; the app's own tokens follow.
+ */
+:root {
+  --frame: #f2f6f7;          /* one low-chroma step of the X85 teal */
+  --sheet: #ffffff;
+  --raised: #f4f6f8;
+  --active: #e6eced;
+  --border: #e3e7e9;
+  --rule: #eef1f2;
+  --control: #cdced1;
+  --text: #131416;
+  --muted: #5d5f60;
+  --data: #1b6c80;           /* the one hue, on data */
+  --data-soft: #e3f0f3;
+  --edited: #8a5a00;
+  --edited-soft: #fdf3dc;
+  --positive: #1e7b4f;
+  --negative: #c4242a;
+
+  --background: var(--sheet);
+  --foreground: var(--text);
+  --card: var(--raised);
+  --card-foreground: var(--text);
+  --popover: var(--sheet);
+  --popover-foreground: var(--text);
+  --primary: #131416;        /* near-black primary action */
+  --primary-foreground: #ffffff;
+  --secondary: var(--raised);
+  --secondary-foreground: var(--text);
+  --muted-foreground: var(--muted);
+  --accent: var(--data);
+  --accent-foreground: #ffffff;
+  --destructive: var(--negative);
+  --input: var(--control);
+  --ring: #9aa3a6;
+  --success: var(--positive);
+  --warning: var(--edited);
+}
+
+.dark {
+  --frame: #0e1112;
+  --sheet: #16191a;
+  --raised: #1d2123;
+  --active: #262b2d;
+  --border: #272c2e;
+  --rule: #1f2426;
+  --control: #3e4548;
+  --text: #f1f3f4;
+  --muted: #b2b8bb;
+  --data: #5cb8cc;
+  --data-soft: #17313a;
+  --edited: #f0b44c;
+  --edited-soft: #33280f;
+  --positive: #4fc78a;
+  --negative: #f0656b;
+  --primary: #f1f3f4;
+  --primary-foreground: #131416;
+  --ring: #6b7477;
+}
+
+@theme inline {
+  --font-sans: "IBM Plex Sans", Inter, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --color-frame: var(--frame);
+  --color-sheet: var(--sheet);
+  --color-raised: var(--raised);
+  --color-active: var(--active);
+  --color-rule: var(--rule);
+  --color-data: var(--data);
+  --color-data-soft: var(--data-soft);
+  --color-edited: var(--edited);
+  --color-edited-soft: var(--edited-soft);
+  --color-positive: var(--positive);
+  --color-border: var(--border);
+  --color-border-strong: var(--control);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--card);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { scrollbar-width: none; }
+}
+
+html, body, #root { min-height: 100%; }
+body {
+  margin: 0;
+  background: var(--frame);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+}
+canvas.pixel, img.pixel { image-rendering: pixelated; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Mini screen app: in the AppImage the window is transparent and the widget draws
+   its own rounded card; in a browser tab it sits on a dark backdrop. */
+body.mini {
+  background: transparent;
+}
+body.mini.mini-web {
+  background: #050506;
+}
+body.proto {
+  background: #0a0b0c;
+}
+
+/* Language switch: the page crossfades instead of jumping (router.ts, fade). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 360ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Landing: in-page links glide to their section and stop below the sticky header. */
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+section[id] {
+  scroll-margin-top: 64px;
+}
