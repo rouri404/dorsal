@@ -20,6 +20,7 @@ import { BouncyAccordion } from "@/components/motion/bouncy-accordion";
 import { ActionSwapBlurButton } from "@/components/motion/action-swap-blur";
 import { TextReveal } from "@/components/motion/text-reveal";
 import { SharedLayoutBg } from "@/components/motion/shared-layout-bg";
+import { ScrollReveal } from "@/components/motion/scroll-reveal";
 
 const VERSION = "0.1.0";
 // Where the AppImages are downloaded from: the site's root by default, or another host
@@ -314,7 +315,7 @@ function Features() {
     <section id="recursos" className="border-t border-white/[0.05]">
       {FEATURES.map((f, n) => (
         <article key={f.id} className="mx-auto grid max-w-[1180px] items-center gap-10 px-5 py-20 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
-          <div className={cn("flex flex-col gap-5", n % 2 === 1 && "lg:order-2")}>
+          <ScrollReveal className={cn("flex flex-col gap-5", n % 2 === 1 && "lg:order-2")}>
             <h2 className="text-[32px] font-semibold leading-[1.1] tracking-[-0.025em] sm:text-[40px]">{f.title[i]}</h2>
             <p className="text-lg text-neutral-400">{f.text[i]}</p>
             <ul className="flex flex-col gap-2.5 text-[15px] text-neutral-300">
@@ -324,10 +325,12 @@ function Features() {
                 </li>
               ))}
             </ul>
-          </div>
-          <figure className="m-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0f1011]">
-            <img src={f.image} alt={f.alt[i]} loading="lazy" className="block w-full" />
-          </figure>
+          </ScrollReveal>
+          <ScrollReveal delay={0.12} y={24}>
+            <figure className="m-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0f1011]">
+              <img src={f.image} alt={f.alt[i]} loading="lazy" className="block w-full" />
+            </figure>
+          </ScrollReveal>
         </article>
       ))}
     </section>
@@ -339,7 +342,7 @@ function Mini() {
   return (
     <section className="border-t border-white/[0.05] bg-[#0d0e0f]">
       <div className="mx-auto grid max-w-[1180px] items-center gap-12 px-5 py-20 md:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
-        <div className="flex flex-col gap-5">
+        <ScrollReveal className="flex flex-col gap-5">
           <h2 className="text-[32px] font-semibold leading-[1.1] tracking-[-0.025em] sm:text-[40px]">{tr("Só quer trocar a imagem? Tem um app só para isso.", "Only want to change the image? There is an app just for that.")}</h2>
           <p className="text-lg text-neutral-400">
             {tr(
@@ -350,8 +353,10 @@ function Mini() {
           <ButtonLink href={MINI_APPIMAGE} variant="outline" size="lg" className="w-fit">
             <Download className="size-4" /> {tr("Baixar o Dorsal Screen", "Download Dorsal Screen")}
           </ButtonLink>
-        </div>
-        <img src="/landing/mini.png" alt={tr("O Dorsal Screen: a tela do teclado em 3D, o zoom e os botões de enviar", "Dorsal Screen: the keyboard's screen in 3D, the zoom and the send buttons")} loading="lazy" className="mx-auto w-full max-w-[420px]" />
+        </ScrollReveal>
+        <ScrollReveal delay={0.12} y={24}>
+          <img src="/landing/mini.png" alt={tr("O Dorsal Screen: a tela do teclado em 3D, o zoom e os botões de enviar", "Dorsal Screen: the keyboard's screen in 3D, the zoom and the send buttons")} loading="lazy" className="mx-auto w-full max-w-[420px]" />
+        </ScrollReveal>
       </div>
     </section>
   );
@@ -363,13 +368,15 @@ function Install() {
   return (
     <section id="instalar" className="border-t border-white/[0.05]">
       <div className="mx-auto max-w-[1180px] px-5 py-20">
-        <h2 className="text-[32px] font-semibold leading-[1.1] tracking-[-0.025em] sm:text-[40px]">{tr("Dois jeitos de usar.", "Two ways to use it.")}</h2>
-        <p className="mt-4 max-w-[62ch] text-lg text-neutral-400">
-          {tr("Os dois precisam da mesma regra de acesso no Linux, uma vez só.", "Both need the same Linux access rule, just once.")}
-        </p>
+        <ScrollReveal>
+          <h2 className="text-[32px] font-semibold leading-[1.1] tracking-[-0.025em] sm:text-[40px]">{tr("Dois jeitos de usar.", "Two ways to use it.")}</h2>
+          <p className="mt-4 max-w-[62ch] text-lg text-neutral-400">
+            {tr("Os dois precisam da mesma regra de acesso no Linux, uma vez só.", "Both need the same Linux access rule, just once.")}
+          </p>
+        </ScrollReveal>
 
         <div className="mt-12 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-          <Step n={1} title={tr("Libere o teclado no Linux", "Give Linux access to the keyboard")}>
+          <Step n={1} delay={0} title={tr("Libere o teclado no Linux", "Give Linux access to the keyboard")}>
             <p>
               {tr(
                 "Por padrão, só o root fala com o teclado; é por isso que o qmk.top não funciona no Linux. Rode no terminal e reconecte o cabo:",
@@ -378,7 +385,7 @@ function Install() {
             </p>
             <CopyCommand command={UDEV} />
           </Step>
-          <Step n={2} title={tr("Escolha como abrir", "Choose how to open it")}>
+          <Step n={2} delay={0.14} title={tr("Escolha como abrir", "Choose how to open it")}>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-3 rounded-2xl bg-white/[0.03] p-4">
                 <h4 className="flex items-center gap-2 font-medium text-neutral-100">
@@ -411,17 +418,19 @@ function Install() {
   );
 }
 
-function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
+function Step({ n, title, delay, children }: { n: number; title: string; delay: number; children: ReactNode }) {
   return (
-    <Card className="min-w-0 border-white/[0.07] bg-[#101112] text-[15px] text-neutral-400">
-      <CardHeader>
-        <span className="num grid size-8 place-items-center rounded-full border border-white/15 text-sm font-semibold text-neutral-200">{n}</span>
-        <CardTitle as="h3" className="mt-2 text-xl font-semibold text-neutral-100">
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-4">{children}</CardContent>
-    </Card>
+    <ScrollReveal delay={delay} y={24} className="flex min-w-0">
+      <Card className="min-w-0 flex-1 border-white/[0.07] bg-[#101112] text-[15px] text-neutral-400">
+        <CardHeader>
+          <span className="num grid size-8 place-items-center rounded-full border border-white/15 text-sm font-semibold text-neutral-200">{n}</span>
+          <CardTitle as="h3" className="mt-2 text-xl font-semibold text-neutral-100">
+            {title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-1 flex-col gap-4">{children}</CardContent>
+      </Card>
+    </ScrollReveal>
   );
 }
 
@@ -491,11 +500,15 @@ function Questions() {
   return (
     <section id="perguntas" className="border-t border-white/[0.05]">
       <div className="mx-auto grid max-w-[1180px] gap-10 px-5 py-20 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]">
-        <h2 className="text-[32px] font-semibold leading-[1.1] tracking-[-0.025em] sm:text-[40px]">{tr("Perguntas.", "Questions.")}</h2>
-        <BouncyAccordion
-          items={QUESTIONS.map(([qp, ap, qe, ae], i) => ({ id: String(i), title: en ? qe : qp, description: en ? ae : ap }))}
-          classNames={{ item: "bg-[#121315]", title: "whitespace-normal text-base text-neutral-100", description: "text-neutral-400" }}
-        />
+        <ScrollReveal>
+          <h2 className="text-[32px] font-semibold leading-[1.1] tracking-[-0.025em] sm:text-[40px]">{tr("Perguntas.", "Questions.")}</h2>
+        </ScrollReveal>
+        <ScrollReveal delay={0.12} y={24}>
+          <BouncyAccordion
+            items={QUESTIONS.map(([qp, ap, qe, ae], i) => ({ id: String(i), title: en ? qe : qp, description: en ? ae : ap }))}
+            classNames={{ item: "bg-[#121315]", title: "whitespace-normal text-base text-neutral-100", description: "text-neutral-400" }}
+          />
+        </ScrollReveal>
       </div>
     </section>
   );
