@@ -43,10 +43,9 @@ function allowHid() {
   ses.setDevicePermissionHandler((details) => details.deviceType === "hid" && !hidDisabled && details.device.vendorId === VENDOR_ID);
   ses.on("select-hid-device", (event, details, callback) => {
     event.preventDefault();
-    // Prefer the cable (0x5002): the screen only accepts uploads over USB.
-    const ours = details.deviceList.filter((d) => d.vendorId === VENDOR_ID);
-    const pick = ours.find((d) => d.productId === 0x5002) ?? ours[0];
-    callback(hidDisabled ? "" : pick ? pick.deviceId : "");
+    // Only the cable (0x5002): the 2.4G dongle answers no configuration command.
+    const pick = details.deviceList.find((d) => d.vendorId === VENDOR_ID && d.productId === 0x5002);
+    callback(hidDisabled || !pick ? "" : pick.deviceId);
   });
 }
 

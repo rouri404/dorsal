@@ -347,7 +347,7 @@ function CopyCommand({ command }: { command: string }) {
 function ConnectNotice({ error, className }: { error: ConnectError; className?: string }) {
   const lang = useLang();
   const { title, hint } = describeConnectError(error, lang);
-  const warning = error.kind === "not-x85" || error.kind === "no-access";
+  const warning = error.kind === "not-x85" || error.kind === "no-access" || error.kind === "no-cable" || error.kind === "dongle";
   return (
     <div role="alert" className={cn("flex items-start gap-2.5 text-sm", className)}>
       <TriangleAlert className={cn("mt-0.5 size-4 shrink-0", warning ? "text-amber-400" : "text-red-400")} />
@@ -362,17 +362,23 @@ function ConnectDock() {
   const { connect, connecting, error } = useDevice();
   const tr = useTr();
   const inApp = navigator.userAgent.includes("Electron");
-  // A blocked device is fixed by step 2; anything else is reported where you connect.
+  // Each problem shows in the step that fixes it: the cable in 1, access in 2, the rest in 3.
   const noAccess = error?.kind === "no-access";
+  const noCable = error?.kind === "no-cable" || error?.kind === "dongle";
   return (
     <Dock cols="md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,1fr)]">
-      <Card title={tr("1. Cabo USB", "1. USB cable")} aside={<Cable className="size-4 text-neutral-500" />}>
+      <Card
+        title={tr("1. Cabo USB", "1. USB cable")}
+        aside={<Cable className={cn("size-4", noCable ? "text-amber-400" : "text-neutral-500")} />}
+        className={cn(noCable && "border-amber-400/40")}
+      >
         <p className="text-sm text-neutral-400">
           {tr(
             "Ligue o X85 Pro pelo cabo. A tela só aceita imagens pelo cabo, e pelo dongle 2.4G este app ainda não configura o teclado.",
             "Plug the X85 Pro in with the cable. The screen only takes images over USB, and over the 2.4G dongle this app cannot configure the keyboard yet.",
           )}
         </p>
+        {noCable && error && <ConnectNotice error={error} />}
       </Card>
       <Card
         title={tr("2. Acesso no Linux, uma vez", "2. Linux access, once")}
@@ -396,7 +402,7 @@ function ConnectDock() {
             <Usb className="size-4" /> {connecting ? tr("Conectando…", "Connecting…") : tr("Conectar teclado", "Connect keyboard")}
           </BigButton>
         </div>
-        {error && !noAccess && error.kind !== "not-x85" && <ConnectNotice error={error} />}
+        {error && !noAccess && !noCable && error.kind !== "not-x85" && <ConnectNotice error={error} />}
       </Card>
     </Dock>
   );

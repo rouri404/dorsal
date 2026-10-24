@@ -5,11 +5,11 @@ export const VENDOR_ID = 0x3151;
 export const PRODUCT_WIRED = 0x5002;
 export const PRODUCT_DONGLE = 0x5006;
 
-/** Only the vendor configuration collection; the keyboard/media collections are not ours. */
-export const HID_FILTERS: HIDDeviceFilter[] = [
-  { vendorId: VENDOR_ID, productId: PRODUCT_WIRED, usagePage: 0xffff, usage: 2 },
-  { vendorId: VENDOR_ID, productId: PRODUCT_DONGLE, usagePage: 0xffff, usage: 2 },
-];
+/**
+ * Only the cable's configuration collection. The 2.4G dongle exposes the same collection but
+ * answers every configuration command with zeros, so it is never offered.
+ */
+export const HID_FILTERS: HIDDeviceFilter[] = [{ vendorId: VENDOR_ID, productId: PRODUCT_WIRED, usagePage: 0xffff, usage: 2 }];
 
 export interface LogEntry {
   time: number;

@@ -39,7 +39,7 @@ Navigation uses the History API. Switching language crossfades with the View Tra
 
 `src/device.tsx` owns the connection.
 
-- **Connecting**: `navigator.hid.requestDevice` with filters for the cable (`3151:5002`) and the dongle (`3151:5006`), on the configuration collection (usage page `0xFFFF`, usage `2`). A keyboard granted before reconnects on its own.
+- **Connecting**: `navigator.hid.requestDevice` filtered to the cable (`3151:5002`) on the configuration collection (usage page `0xFFFF`, usage `2`). The 2.4G dongle (`3151:5006`) exposes the same collection but answers every configuration command with zeros, so it is never offered. A cable granted before reconnects on its own; a device appearing while one is connected does not reset the connection.
 - **Snapshot**: on connect, every setting is read once (key maps, lights, polling, debounce, sleep, screen info, profile, power saving) and cached. The UI reads the cache; writes update it. The mini app reads nothing (`parts={[]}`).
 - **Actions**: `useAction` runs a write and reports a short status.
 - **Dry run and log**: in developer mode, writes are logged instead of sent, and the last 400 packets are kept for the Log section.

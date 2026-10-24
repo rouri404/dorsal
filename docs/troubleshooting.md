@@ -14,6 +14,7 @@
   To check, `getfacl /dev/hidraw*` should list your user with `rw` on the keyboard's devices.
 - **The browser has no WebHID.** Firefox and Safari do not support it. Use Chrome, Edge, Chromium or Brave, or the AppImage.
 - **A Flatpak browser cannot see devices.** Give it device access, for example `flatpak override --user --device=all com.brave.Browser`, then restart it.
+- **Only the 2.4G dongle is connected.** The dongle answers no configuration command, so the app only connects through the USB cable. Plug the cable in, even with the dongle still connected.
 - **Another program holds the keyboard.** Close other configurators or browser tabs connected to it.
 
 ## Images are refused

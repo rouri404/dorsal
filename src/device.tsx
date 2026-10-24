@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Transport, type LogEntry } from "./hid/transport";
+import { PRODUCT_DONGLE, PRODUCT_WIRED, Transport, type LogEntry } from "./hid/transport";
 import { X85, X85_DEVICE_ID, type Identity, type LightSetting, type ScreenInfo, type SleepSetting } from "./protocol/x85";
 import type { KeyValue } from "./protocol/keycodes";
 import { DemoTransport, isDemo } from "./demo/DemoTransport";
@@ -56,6 +56,8 @@ interface DeviceState {
 
 /** Why a connection failed (or, for not-x85, a warning on a connection that worked). */
 export type ConnectError =
+  | { kind: "no-cable" }
+  | { kind: "dongle" }
   | { kind: "no-webhid" }
   | { kind: "no-access" }
   | { kind: "no-answer" }
@@ -66,6 +68,14 @@ export type ConnectError =
 export function describeConnectError(e: ConnectError, lang: "pt" | "en"): { title: string; hint: string } {
   const en = lang === "en";
   switch (e.kind) {
+    case "no-cable":
+      return en
+        ? { title: "The X85 Pro is not plugged in by cable.", hint: "Plug in the USB cable and connect again." }
+        : { title: "O X85 Pro não está ligado pelo cabo.", hint: "Ligue o cabo USB e conecte de novo." };
+    case "dongle":
+      return en
+        ? { title: "Only the 2.4G dongle is connected.", hint: "The keyboard takes no settings over the dongle. Plug in the USB cable and connect again." }
+        : { title: "Só o dongle 2.4G está conectado.", hint: "Pelo dongle o teclado não aceita configurações. Ligue o cabo USB e conecte de novo." };
     case "no-webhid":
       return en
         ? { title: "This browser cannot talk to the keyboard.", hint: "Open it in Chrome, Edge, Chromium or Brave, or use the AppImage." }
@@ -102,6 +112,8 @@ const LOG_LIMIT = 400;
 /** `parts` limits what is read on connect (the mini screen app needs none of the settings). */
 export function DeviceProvider({ children, parts = Object.keys(READERS) as SnapshotKey[] }: { children: ReactNode; parts?: SnapshotKey[] }) {
   const [kb, setKb] = useState<X85 | null>(null);
+  const kbRef = useRef<X85 | null>(null);
+  kbRef.current = kb;
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot>({});
   const [loading, setLoading] = useState(false);
@@ -154,9 +166,12 @@ export function DeviceProvider({ children, parts = Object.keys(READERS) as Snaps
 
   const attach = useCallback(
     async (devices: HIDDevice[]) => {
-      // Prefer the cable: the screen only accepts uploads over USB.
-      const device = devices.find((d) => d.productId === 0x5002) ?? devices[0];
-      if (device) await attachTransport(new Transport(device));
+      // Only the cable: the dongle answers no configuration command (it replies with zeros).
+      const cable = devices.find((d) => d.productId === PRODUCT_WIRED);
+      if (cable) await attachTransport(new Transport(cable));
+      else if (devices.some((d) => d.productId === PRODUCT_DONGLE)) throw new ConnectFailure({ kind: "dongle" });
+      // The AppImages pick the device themselves: nothing picked means no cable is plugged in.
+      else if (navigator.userAgent.includes("Electron")) throw new ConnectFailure({ kind: "no-cable" });
     },
     [attachTransport],
   );
@@ -204,12 +219,14 @@ export function DeviceProvider({ children, parts = Object.keys(READERS) as Snaps
       return;
     }
     if (!Transport.supported()) return;
-    const tryGranted = () =>
+    // Reconnects to a keyboard granted before; a device appearing while one is connected
+    // (the dongle waking up, say) must not reset the connection in use.
+    const tryGranted = () => {
+      if (kbRef.current) return;
       Transport.granted()
-        .then((d) => {
-          if (d.length) void attach(d);
-        })
-        .catch(() => undefined);
+        .then((d) => (d.some((x) => x.productId === PRODUCT_WIRED) ? attach(d) : undefined))
+        .catch((e) => e instanceof ConnectFailure && setError(e.reason));
+    };
     tryGranted();
     const onDisconnect = (e: HIDConnectionEvent) => {
       setKb((cur) => {
