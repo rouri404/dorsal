@@ -1,0 +1,64 @@
+{
+  "name": "x85-configurator",
+  "productName": "X85 Configurator",
+  "version": "0.1.0",
+  "description": "Configurador aberto para o teclado Attack Shark X85 Pro (WebHID + AppImage)",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "electron": "npm run build && electron .",
+    "appimage": "npm run build && electron-builder --linux AppImage",
+    "appimage:mini": "npm run build && electron-builder --linux AppImage --config electron-builder.mini.json"
+  },
+  "dependencies": {
+    "@floating-ui/dom": "1.7.2",
+    "@fontsource/ibm-plex-mono": "5.2.5",
+    "@fontsource/ibm-plex-sans": "5.2.5",
+    "@tailwindcss/vite": "4.1.11",
+    "@tanstack/react-virtual": "3.14.22",
+    "clsx": "2.1.1",
+    "gifuct-js": "2.1.2",
+    "lucide-react": "0.525.0",
+    "motion": "12.23.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "tailwind-merge": "3.3.1",
+    "tailwindcss": "4.1.11",
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.8",
+    "@types/react-dom": "19.1.6",
+    "@types/three": "0.170.0",
+    "@types/w3c-web-hid": "1.0.6",
+    "@vitejs/plugin-react": "4.3.4",
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8",
+    "typescript": "5.6.3",
+    "vite": "5.4.11",
+    "vitest": "2.1.8"
+  },
+  "build": {
+    "appId": "dev.x85.configurator",
+    "productName": "Dorsal",
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "linux": {
+      "target": "AppImage",
+      "category": "Utility",
+      "artifactName": "X85-Configurator-${version}.AppImage",
+      "icon": "public/icon.png"
+    },
+    "directories": {
+      "output": "release"
+    }
+  }
+}
