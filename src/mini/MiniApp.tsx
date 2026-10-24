@@ -4,7 +4,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Check, Clock, Crosshair, ImagePlus, Minus, Plus, Timer, TriangleAlert, Upload, Usb, X } from "lucide-react";
 import { describeConnectError, useDevice } from "../device";
-import { useLang, useTr } from "../i18n";
+import { useLang, useTr, type Lang } from "../i18n";
 import { DEFAULT_VIEW, type Fit } from "../screen/load";
 import { clampDelay } from "../screen/packets";
 import { Screen3D } from "./Screen3D";
@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/m
 const IN_APP = navigator.userAgent.includes("Electron");
 const NO_DRAG = "[-webkit-app-region:no-drag]";
 
-export function MiniApp() {
+export function MiniApp({ onLang }: { onLang: (l: Lang) => void }) {
   const { connect, connecting, error } = useDevice();
   const tr = useTr();
   const lang = useLang();
@@ -32,16 +32,31 @@ export function MiniApp() {
         {/* Top bar doubles as the window's drag handle. */}
         <header className="relative z-10 flex h-9 items-center justify-between [-webkit-app-region:drag]">
           <span className="text-sm text-neutral-400">Dorsal Screen</span>
-          {IN_APP && (
-            <button
-              type="button"
-              onClick={() => window.close()}
-              aria-label={tr("Fechar", "Close")}
-              className={cn("grid size-8 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-white/5 hover:text-neutral-100", NO_DRAG)}
-            >
-              <X className="size-4" />
-            </button>
-          )}
+          <div className={cn("flex items-center gap-1", NO_DRAG)}>
+            <span className="flex items-center rounded-lg bg-white/[0.05] p-0.5" role="group" aria-label="Idioma / Language">
+              {(["pt", "en"] as Lang[]).map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  aria-pressed={lang === l}
+                  onClick={() => lang !== l && onLang(l)}
+                  className={cn("h-6 rounded-md px-1.5 text-[11px] uppercase", lang === l ? "bg-white/[0.12] text-white" : "text-neutral-400 hover:text-white")}
+                >
+                  {l}
+                </button>
+              ))}
+            </span>
+            {IN_APP && (
+              <button
+                type="button"
+                onClick={() => window.close()}
+                aria-label={tr("Fechar", "Close")}
+                className="grid size-8 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-white/5 hover:text-neutral-100"
+              >
+                <X className="size-4" />
+              </button>
+            )}
+          </div>
         </header>
 
         {/* The keyboard's screen in 3D, lit, its light falling on the desk; the keys around
