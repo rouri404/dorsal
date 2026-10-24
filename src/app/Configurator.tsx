@@ -64,6 +64,17 @@ export function Configurator({ section }: { section: Section }) {
   const [side, setSide] = useState<LightSetting | undefined>(snapshot.sideLight);
   useEffect(() => setLight(snapshot.light), [snapshot.light]);
   useEffect(() => setSide(snapshot.sideLight), [snapshot.sideLight]);
+  // Esc deselects the key, unless it is closing an open list, menu or picker first. Listened
+  // in the capture phase, so the popup is still marked open when this runs.
+  useEffect(() => {
+    if (section !== "keys" || selected === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || document.querySelector('[aria-expanded="true"]')) return;
+      setSelected(null);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [section, selected]);
   useEffect(() => {
     document.title = `${PRODUCT} · ${tr(SECTIONS.find((s) => s.id === section)?.pt ?? "", SECTIONS.find((s) => s.id === section)?.en ?? "")}`;
   });
