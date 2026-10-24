@@ -10,7 +10,7 @@
 curl -fsSL https://dorsal.cotoo.dev/udev.sh | sudo sh
 ```
 
-The script (`public/udev.sh`) writes `udev/70-attack-shark-x85.rules` to `/etc/udev/rules.d/` and reloads udev. From a clone, the same by hand:
+The script, generated at build time for `VITE_SITE_URL` (`udevScript` in `vite.config.ts`), writes `udev/70-attack-shark-x85.rules` to `/etc/udev/rules.d/` and reloads udev. From a clone, the same by hand:
 
 ```bash
 sudo cp udev/70-attack-shark-x85.rules /etc/udev/rules.d/

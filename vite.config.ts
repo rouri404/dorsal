@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig, loadEnv, type Plugin } from "vite";
@@ -26,6 +26,40 @@ function seoFiles(site: string): Plugin {
           source: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${pages.flatMap(([pt, en]) => [url(pt, en, pt), url(pt, en, en)]).join("\n")}\n</urlset>\n`,
         });
       },
+  };
+}
+
+/**
+ * udev.sh, the landing page's one-line Linux setup (`curl -fsSL <site>/udev.sh | sudo sh`):
+ * written into the build from the site's address (VITE_SITE_URL) and the rule in udev/, and
+ * served by the dev server at the same path.
+ */
+function udevScript(site: string): Plugin {
+  const script = () => {
+    const rule = readFileSync(fileURLToPath(new URL("./udev/70-attack-shark-x85.rules", import.meta.url)), "utf8").trim();
+    return `#!/bin/sh
+# Dorsal: lets your user open the Attack Shark X85 Pro without root, by creating one udev rule.
+# Run with: curl -fsSL ${site}/udev.sh | sudo sh
+set -e
+cat > /etc/udev/rules.d/70-attack-shark-x85.rules <<'RULE'
+${rule}
+RULE
+udevadm control --reload
+udevadm trigger --subsystem-match=hidraw
+echo "Done. Unplug and replug the keyboard's USB cable."
+`;
+  };
+  return {
+    name: "udev-script",
+    configureServer: (server) =>
+      void server.middlewares.use((req, res, next) => {
+        if ((req.url ?? "").split("?")[0] !== "/udev.sh") return next();
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+        res.end(script());
+      }),
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: "udev.sh", source: script() });
+    },
   };
 }
 
@@ -63,7 +97,7 @@ export default defineConfig(({ mode }) => {
   const site = (loadEnv(mode, process.cwd(), "VITE_").VITE_SITE_URL || "https://dorsal.cotoo.dev").replace(/\/$/, "");
   return {
     base: "/",
-    plugins: [react(), tailwindcss(), seoFiles(site), serveAppImages()],
+    plugins: [react(), tailwindcss(), seoFiles(site), udevScript(site), serveAppImages()],
     // Two pages: the site (landing and configurator, routed in the app) and the mini screen app.
     build: {
       rollupOptions: {
