@@ -3,8 +3,8 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { Check, Clock, Crosshair, ImagePlus, Minus, Plus, Timer, TriangleAlert, Upload, Usb, X } from "lucide-react";
-import { useDevice } from "../device";
-import { useTr } from "../i18n";
+import { describeConnectError, useDevice } from "../device";
+import { useLang, useTr } from "../i18n";
 import { DEFAULT_VIEW, type Fit } from "../screen/load";
 import { clampDelay } from "../screen/packets";
 import { Screen3D } from "./Screen3D";
@@ -21,6 +21,7 @@ const NO_DRAG = "[-webkit-app-region:no-drag]";
 export function MiniApp() {
   const { connect, connecting, error } = useDevice();
   const tr = useTr();
+  const lang = useLang();
   const ed = useScreenEditor(170); // the TFT is about 170 px wide on the model
   const { kb, job, file, source, view, setView, delay, setDelay, clock, loadError, screen, glow, animated, uploading, canSend, zoomPct, setZoom, send, syncClock, sendLabel } = ed;
   const picker = useRef<HTMLInputElement>(null);
@@ -143,8 +144,8 @@ export function MiniApp() {
 
         <footer className="mt-3 flex h-7 items-center justify-between gap-3 text-xs text-neutral-500">
           {loadError || error ? (
-            <span className="truncate text-red-400" title={loadError ?? error ?? ""}>
-              {loadError ?? error}
+            <span className="truncate text-red-400" title={loadError ?? (error ? describeConnectError(error, lang).hint : "")}>
+              {loadError ?? (error ? describeConnectError(error, lang).title : "")}
             </span>
           ) : kb ? (
             <span className="flex items-center gap-1.5">

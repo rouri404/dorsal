@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Cable, Check, Clock, Copy, Crosshair, Download, ImagePlus, Minus, Plus, RotateCcw, ShieldCheck, Timer, Trash2, TriangleAlert, Upload, Usb } from "lucide-react";
-import { useAction, useDevice } from "../device";
+import { describeConnectError, useAction, useDevice, type ConnectError } from "../device";
 import { FACTORY_BASE, FACTORY_FN_WIN } from "../layout/x85-factory";
 import { X85_KEYS, X85_VIRTUAL } from "../layout/x85";
 import { FUNCTIONS, HID_NAMES, KEY_GROUPS, isEmpty, keyValue, sameValue, type KeyValue } from "../protocol/keycodes";
@@ -168,7 +168,7 @@ export function Configurator({ section }: { section: Section }) {
         </div>
 
         <section aria-label={tr("Controles", "Controls")} className="shrink-0 border-t border-white/[0.05] px-4 pb-4 pt-3">
-          {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
+          {kb && error && <ConnectNotice error={error} className="mx-auto mb-3 max-w-[1320px]" />}
           {dryRun && <p className="mb-2 text-xs text-amber-400">{tr("Modo simulação: nada é gravado no teclado; os pacotes vão para o Log.", "Dry run: nothing is written to the keyboard; packets go to the Log.")}</p>}
           {section === "log" ? (
             <LogSection />
@@ -343,10 +343,27 @@ function CopyCommand({ command }: { command: string }) {
 /* ---------- Not connected ---------- */
 
 /** Before a keyboard is connected: the three things to do, in order. */
+/** A connection problem, said plainly with what to do: amber for a warning, red for a failure. */
+function ConnectNotice({ error, className }: { error: ConnectError; className?: string }) {
+  const lang = useLang();
+  const { title, hint } = describeConnectError(error, lang);
+  const warning = error.kind === "not-x85" || error.kind === "no-access";
+  return (
+    <div role="alert" className={cn("flex items-start gap-2.5 text-sm", className)}>
+      <TriangleAlert className={cn("mt-0.5 size-4 shrink-0", warning ? "text-amber-400" : "text-red-400")} />
+      <p className="min-w-0">
+        <span className={warning ? "text-amber-200" : "text-red-200"}>{title}</span> <span className="text-neutral-400">{hint}</span>
+      </p>
+    </div>
+  );
+}
+
 function ConnectDock() {
-  const { connect, connecting } = useDevice();
+  const { connect, connecting, error } = useDevice();
   const tr = useTr();
   const inApp = navigator.userAgent.includes("Electron");
+  // A blocked device is fixed by step 2; anything else is reported where you connect.
+  const noAccess = error?.kind === "no-access";
   return (
     <Dock cols="md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,1fr)]">
       <Card title={tr("1. Cabo USB", "1. USB cable")} aside={<Cable className="size-4 text-neutral-500" />}>
@@ -357,11 +374,16 @@ function ConnectDock() {
           )}
         </p>
       </Card>
-      <Card title={tr("2. Acesso no Linux, uma vez", "2. Linux access, once")} aside={<ShieldCheck className="size-4 text-neutral-500" />}>
+      <Card
+        title={tr("2. Acesso no Linux, uma vez", "2. Linux access, once")}
+        aside={<ShieldCheck className={cn("size-4", noAccess ? "text-amber-400" : "text-neutral-500")} />}
+        className={cn(noAccess && "border-amber-400/40")}
+      >
         <p className="text-sm text-neutral-400">
           {tr("Sem esta regra, só o root abre o teclado. Rode no terminal e reconecte o cabo:", "Without this rule only root can open the keyboard. Run it in a terminal and replug the cable:")}
         </p>
         <CopyCommand command={UDEV} />
+        {noAccess && error && <ConnectNotice error={error} />}
       </Card>
       <Card title={tr("3. Conectar", "3. Connect")} aside={<Usb className="size-4 text-neutral-500" />}>
         <p className="text-sm text-neutral-400">
@@ -374,6 +396,7 @@ function ConnectDock() {
             <Usb className="size-4" /> {connecting ? tr("Conectando…", "Connecting…") : tr("Conectar teclado", "Connect keyboard")}
           </BigButton>
         </div>
+        {error && !noAccess && error.kind !== "not-x85" && <ConnectNotice error={error} />}
       </Card>
     </Dock>
   );

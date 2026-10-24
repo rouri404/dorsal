@@ -41,7 +41,7 @@ interface DeviceState {
   /** True until the first full read after connecting finishes. */
   loading: boolean;
   connecting: boolean;
-  error: string | null;
+  error: ConnectError | null;
   dryRun: boolean;
   log: LogEntry[];
   connect: () => Promise<void>;
@@ -54,21 +54,59 @@ interface DeviceState {
   clearLog: () => void;
 }
 
+/** Why a connection failed (or, for not-x85, a warning on a connection that worked). */
+export type ConnectError =
+  | { kind: "no-webhid" }
+  | { kind: "no-access" }
+  | { kind: "no-answer" }
+  | { kind: "not-x85"; deviceId: number }
+  | { kind: "other"; detail: string };
+
+/** What to tell the person about a connection error, and what to do about it. */
+export function describeConnectError(e: ConnectError, lang: "pt" | "en"): { title: string; hint: string } {
+  const en = lang === "en";
+  switch (e.kind) {
+    case "no-webhid":
+      return en
+        ? { title: "This browser cannot talk to the keyboard.", hint: "Open it in Chrome, Edge, Chromium or Brave, or use the AppImage." }
+        : { title: "Este navegador não fala com o teclado.", hint: "Abra no Chrome, Edge, Chromium ou Brave, ou use o AppImage." };
+    case "no-access":
+      return en
+        ? { title: "Linux blocked access to the keyboard.", hint: "Run the command in step 2, replug the cable and connect again." }
+        : { title: "O Linux bloqueou o acesso ao teclado.", hint: "Rode o comando do passo 2, reconecte o cabo e conecte de novo." };
+    case "no-answer":
+      return en
+        ? { title: "The keyboard did not answer.", hint: "Replug the cable, close other apps connected to it (such as qmk.top) and try again." }
+        : { title: "O teclado não respondeu.", hint: "Reconecte o cabo, feche outros apps ligados a ele (como o qmk.top) e tente de novo." };
+    case "not-x85":
+      return en
+        ? { title: "This keyboard is not an X85 Pro.", hint: `Its firmware reports ID ${e.deviceId}; some features may not work.` }
+        : { title: "Este teclado não é um X85 Pro.", hint: `O firmware informa o ID ${e.deviceId}; alguns recursos podem não funcionar.` };
+    case "other":
+      return en ? { title: "Could not connect.", hint: e.detail } : { title: "Não deu para conectar.", hint: e.detail };
+  }
+}
+
+/** Opening a hidraw device without permission fails with these. */
+const isAccessError = (e: unknown) => e instanceof DOMException && (e.name === "NotAllowedError" || e.name === "SecurityError" || /failed to open/i.test(e.message));
+
+class ConnectFailure extends Error {
+  constructor(readonly reason: ConnectError) {
+    super(reason.kind);
+  }
+}
+
 const Ctx = createContext<DeviceState | null>(null);
 const LOG_LIMIT = 400;
 
 /** `parts` limits what is read on connect (the mini screen app needs none of the settings). */
 export function DeviceProvider({ children, parts = Object.keys(READERS) as SnapshotKey[] }: { children: ReactNode; parts?: SnapshotKey[] }) {
-  const lang = useLang();
-  const langRef = useRef(lang);
-  langRef.current = lang;
-  const tr = (pt: string, en: string) => (langRef.current === "en" ? en : pt);
   const [kb, setKb] = useState<X85 | null>(null);
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot>({});
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ConnectError | null>(null);
   const [dryRun, setDryRunState] = useState(false);
   const [log, setLog] = useState<LogEntry[]>([]);
   const unsubscribe = useRef<(() => void) | null>(null);
@@ -86,15 +124,21 @@ export function DeviceProvider({ children, parts = Object.keys(READERS) as Snaps
   const attachTransport = useCallback(
     async (t: Transport) => {
       t.dryRun = dryRunRef.current;
-      await t.open();
+      try {
+        await t.open();
+      } catch (e) {
+        throw new ConnectFailure(isAccessError(e) ? { kind: "no-access" } : { kind: "other", detail: e instanceof Error ? e.message : String(e) });
+      }
       unsubscribe.current?.();
       unsubscribe.current = t.onLog((e) => setLog((l) => (l.length >= LOG_LIMIT ? [...l.slice(-LOG_LIMIT + 1), e] : [...l, e])));
       const k = new X85(t);
-      const id = await k.identity();
-      if (!id) throw new Error(tr("O teclado não respondeu ao comando de identificação (0x8F).", "The keyboard did not answer the identify command (0x8F)."));
-      if (id.deviceId !== X85_DEVICE_ID) {
-        setError(tr(`Dispositivo ${id.deviceId} não é o X85 Pro (3451). Os recursos podem não funcionar.`, `Device ${id.deviceId} is not the X85 Pro (3451). Features may not work.`));
+      // A keyboard just plugged in can miss the first command; ask twice before giving up.
+      const id = (await k.identity()) ?? (await new Promise((r) => setTimeout(r, 150)).then(() => k.identity()));
+      if (!id) {
+        await t.close().catch(() => undefined);
+        throw new ConnectFailure({ kind: "no-answer" });
       }
+      if (id.deviceId !== X85_DEVICE_ID) setError({ kind: "not-x85", deviceId: id.deviceId });
       setSnapshot({});
       setIdentity(id);
       setKb(k);
@@ -121,10 +165,14 @@ export function DeviceProvider({ children, parts = Object.keys(READERS) as Snaps
     setError(null);
     setConnecting(true);
     try {
-      if (!Transport.supported()) throw new Error(tr("Este navegador não tem WebHID. Use Chrome, Chromium, Edge, Brave ou o AppImage.", "This browser has no WebHID. Use Chrome, Chromium, Edge, Brave or the AppImage."));
+      if (!Transport.supported()) throw new ConnectFailure({ kind: "no-webhid" });
+      // Closing the browser's chooser picks nothing: not an error.
       await attach(await Transport.request());
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (e instanceof ConnectFailure) setError(e.reason);
+      else if (e instanceof DOMException && e.name === "NotFoundError") setError(null);
+      else if (isAccessError(e)) setError({ kind: "no-access" });
+      else setError({ kind: "other", detail: e instanceof Error ? e.message : String(e) });
     } finally {
       setConnecting(false);
     }
