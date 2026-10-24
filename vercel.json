@@ -4,5 +4,11 @@
       "source": "/((?!assets/|landing/|mini\\.html|favicon\\.svg|icon\\.png|og\\.png|robots\\.txt|udev\\.sh|sitemap\\.xml|.*\\.AppImage).*)",
       "destination": "/index.html"
     }
+  ],
+  "headers": [
+    {
+      "source": "/udev.sh",
+      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
+    }
   ]
 }

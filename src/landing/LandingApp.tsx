@@ -390,7 +390,8 @@ function Install() {
             <Terminal command={UDEV_COMMAND} />
             <p className="text-sm text-neutral-500">
               {tr("O script só cria a regra de acesso do udev. ", "The script only creates the udev access rule. ")}
-              <a href={UDEV_SCRIPT} target="_blank" rel="noreferrer" className="text-neutral-300 underline decoration-white/20 underline-offset-4 hover:text-white">
+              {/* The page's own copy, so it opens on localhost and previews too. */}
+              <a href="/udev.sh" target="_blank" rel="noreferrer" className="text-neutral-300 underline decoration-white/20 underline-offset-4 hover:text-white">
                 {tr("Ler o script", "Read the script")}
               </a>
             </p>
