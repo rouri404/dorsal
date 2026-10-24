@@ -1,0 +1,20 @@
+{
+  "appId": "dev.x85.screen",
+  "productName": "X85 Screen",
+  "extraMetadata": {
+    "main": "electron/mini.cjs"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*"
+  ],
+  "linux": {
+    "target": "AppImage",
+    "category": "Utility",
+    "artifactName": "X85-Screen-${version}.AppImage",
+    "icon": "public/icon.png"
+  },
+  "directories": {
+    "output": "release-mini"
+  }
+}
