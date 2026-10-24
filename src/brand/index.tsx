@@ -6,6 +6,9 @@ export const PRODUCT = "Dorsal";
 /** Where the site lives (VITE_SITE_URL in .env). */
 export const SITE = (import.meta.env.VITE_SITE_URL || "https://dorsal.cotoo.dev").replace(/\/$/, "");
 
+/** The source repository (VITE_REPO_URL in .env): issues and releases. */
+export const REPO = (import.meta.env.VITE_REPO_URL || "https://github.com/rouri404/dorsal").replace(/\/$/, "");
+
 /** The mark: a keycap with a dorsal fin cutting through its face. */
 export function Logo({ className }: { className?: string }) {
   return (

@@ -11,6 +11,7 @@ The site lives at **[dorsal.cotoo.dev](https://dorsal.cotoo.dev)**. It is a stat
    | --- | --- |
    | `VITE_SITE_URL` | `https://dorsal.cotoo.dev` |
    | `VITE_DOWNLOAD_BASE` | Where the AppImages are hosted (see below), or empty |
+   | `VITE_REPO_URL` | `https://github.com/rouri404/dorsal` (optional: this is the default) |
 
 3. **Add the domain** `dorsal.cotoo.dev` to the project, and at the DNS provider of `cotoo.dev` create the record Vercel asks for, usually a `CNAME` from `dorsal` to `cname.vercel-dns.com`.
 4. **Deploy.** HTTPS comes with the domain, and WebHID needs it.

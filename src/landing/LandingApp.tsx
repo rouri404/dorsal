@@ -2,7 +2,7 @@
 // demo mode, how to use it in the browser and how to install it on Linux.
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Check, Copy, Download, Globe } from "lucide-react";
+import { ArchiveRestore, BadgeInfo, Check, Copy, Download, Globe, Languages, Laptop, MessageCircleQuestion, PackageOpen, ShieldCheck, Terminal as TerminalIcon, Usb } from "lucide-react";
 import { Board3D, type Framing } from "../app/Board3D";
 import { FACTORY_BASE } from "../layout/x85-factory";
 import { drawClockFace } from "../screen/clockFace";
@@ -11,7 +11,7 @@ import type { LightSetting } from "../protocol/x85";
 import { useLang, useTr, type Lang } from "../i18n";
 import { keyShortName } from "../i18n/labels";
 import { navigate, pathOf } from "../router";
-import { Logo, PRODUCT, SITE } from "../brand";
+import { Logo, PRODUCT, REPO, SITE } from "../brand";
 import { cn } from "@/lib/utils";
 import { ButtonLink } from "@/components/motion/button/base";
 import { Tabs, TabsList, TabsTrigger } from "@/components/motion/tabs";
@@ -74,9 +74,9 @@ export function LandingApp() {
 }
 
 const NAV = [
-  { id: "recursos", pt: "Recursos", en: "Features" },
-  { id: "instalar", pt: "Instalar", en: "Install" },
-  { id: "perguntas", pt: "Perguntas", en: "Questions" },
+  { id: "features", pt: "Recursos", en: "Features" },
+  { id: "install", pt: "Instalar", en: "Install" },
+  { id: "questions", pt: "Perguntas", en: "Questions" },
 ];
 
 /** Which of the nav's sections is in view (the one crossing the upper third of the window). */
@@ -313,7 +313,7 @@ function Features() {
   const lang = useLang();
   const i = lang === "en" ? 1 : 0;
   return (
-    <section id="recursos" className="border-t border-white/[0.05]">
+    <section id="features" className="border-t border-white/[0.05]">
       {FEATURES.map((f, n) => (
         <article key={f.id} className="mx-auto grid max-w-[1180px] items-center gap-10 px-5 py-20 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
           <ScrollReveal className={cn("flex flex-col gap-5", n % 2 === 1 && "lg:order-2")}>
@@ -374,7 +374,7 @@ function Install() {
   const [which, setWhich] = useState<"full" | "mini">("full");
   const file = which === "full" ? APPIMAGE_FILE : MINI_FILE;
   return (
-    <section id="instalar" className="border-t border-white/[0.05]">
+    <section id="install" className="border-t border-white/[0.05]">
       <div className="mx-auto max-w-[1180px] px-5 py-20">
         <ScrollReveal>
           <h2 className="text-[32px] font-semibold leading-[1.1] tracking-[-0.025em] sm:text-[40px]">{tr("Dois jeitos de usar.", "Two ways to use it.")}</h2>
@@ -493,59 +493,125 @@ function Terminal({ command }: { command: string }) {
   );
 }
 
-const QUESTIONS: [string, string, string, string][] = [
-  [
-    "Por que o qmk.top não funcionava no meu Linux?",
-    "O site fala com o teclado pelo navegador (WebHID), e o Linux só deixa o root abrir esse tipo de dispositivo. A regra de acesso dá esse direito ao seu usuário. Com ela, até o qmk.top passa a abrir.",
-    "Why did qmk.top not work on my Linux?",
-    "The site talks to the keyboard through the browser (WebHID), and Linux only lets root open that kind of device. The access rule gives that right to your user. With it, even qmk.top opens.",
-  ],
-  [
-    "Preciso instalar algum driver ou biblioteca para usar no navegador?",
-    "Não. O navegador conversa direto com o teclado. No Linux, basta rodar uma vez o comando do passo 1.",
-    "Do I need to install a driver or library to use it in the browser?",
-    "No. The browser talks to the keyboard directly. On Linux, just run the command from step 1 once.",
-  ],
-  [
-    "Funciona pelo dongle 2.4G?",
-    "A tela só aceita imagens pelo cabo USB, por limitação do firmware. As outras configurações pelo dongle ainda não estão prontas; use o cabo para configurar.",
-    "Does it work over the 2.4G dongle?",
-    "The screen only takes images over the USB cable, a firmware limit. The other settings over the dongle are not ready yet; use the cable to configure.",
-  ],
-  [
-    "Pode estragar o teclado?",
-    "Não atualiza firmware. Tudo o que muda pode ser desfeito: dá para guardar um backup e voltar ao padrão de fábrica.",
-    "Can it break the keyboard?",
-    "It never updates firmware. Everything it changes can be undone: you can keep a backup and go back to factory defaults.",
-  ],
-  [
-    "Funciona no Windows ou no macOS?",
-    "No navegador, sim: Chrome e Edge têm WebHID. O AppImage e a regra de acesso são para Linux.",
-    "Does it work on Windows or macOS?",
-    "In the browser, yes: Chrome and Edge have WebHID. The AppImage and the access rule are for Linux.",
-  ],
-  [
-    "É oficial?",
-    "Não. É um projeto independente, feito a partir do protocolo que o próprio teclado usa, sem relação com a Attack Shark.",
-    "Is it official?",
-    "No. It is an independent project, built on the protocol the keyboard itself speaks, not affiliated with Attack Shark.",
-  ],
+/** A question: its icon, and the question and answer in Portuguese and English. */
+interface Question {
+  icon: ReactNode;
+  q: [string, string];
+  a: [ReactNode, ReactNode];
+}
+
+const code = (text: string) => <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[13px] text-neutral-200">{text}</code>;
+const strong = (text: string) => <strong className="font-medium text-neutral-200">{text}</strong>;
+
+const QUESTIONS: Question[] = [
+  {
+    icon: <TerminalIcon />,
+    q: ["Por que o qmk.top não funcionava no meu Linux?", "Why did qmk.top not work on my Linux?"],
+    a: [
+      <>O site fala com o teclado pelo navegador (WebHID), e o Linux só deixa o root abrir esse tipo de dispositivo. A regra de acesso do passo 1 dá esse direito ao seu usuário. Com ela, até o qmk.top passa a abrir.</>,
+      <>The site talks to the keyboard through the browser (WebHID), and Linux only lets root open that kind of device. The access rule from step 1 gives that right to your user. With it, even qmk.top opens.</>,
+    ],
+  },
+  {
+    icon: <PackageOpen />,
+    q: ["Preciso instalar algum driver ou biblioteca para usar no navegador?", "Do I need to install a driver or library to use it in the browser?"],
+    a: [
+      <>Não. O navegador conversa direto com o teclado. No Linux, basta rodar uma vez o comando do passo 1.</>,
+      <>No. The browser talks to the keyboard directly. On Linux, just run the command from step 1 once.</>,
+    ],
+  },
+  {
+    icon: <ArchiveRestore />,
+    q: ["Como faço e restauro um backup?", "How do I back up and restore?"],
+    a: [
+      <ol className="flex list-decimal flex-col gap-1.5 pl-5 marker:text-neutral-500">
+        <li>Em {strong("Sistema → Backup")}, {strong("Baixar backup")} salva teclas, luz e ajustes num arquivo {code(".json")}.</li>
+        <li>Para voltar, clique em {strong("Restaurar backup")} e escolha o arquivo.</li>
+        <li>O {PRODUCT} compara com o teclado, mostra o que vai mudar e só grava a diferença depois que você confirma.</li>
+      </ol>,
+      <ol className="flex list-decimal flex-col gap-1.5 pl-5 marker:text-neutral-500">
+        <li>In {strong("System → Backup")}, {strong("Download backup")} saves keys, lighting and settings to a {code(".json")} file.</li>
+        <li>To go back, click {strong("Restore backup")} and pick the file.</li>
+        <li>{PRODUCT} compares it with the keyboard, shows what will change and writes only the difference once you confirm.</li>
+      </ol>,
+    ],
+  },
+  {
+    icon: <Usb />,
+    q: ["Funciona pelo dongle 2.4G?", "Does it work over the 2.4G dongle?"],
+    a: [
+      <>Não. Pelo dongle o teclado não responde aos comandos de configuração, e a tela só aceita imagens pelo cabo. Para configurar, ligue o {strong("cabo USB")}; o dongle pode continuar conectado.</>,
+      <>No. Over the dongle the keyboard does not answer configuration commands, and the screen only takes images over the cable. To configure it, plug in the {strong("USB cable")}; the dongle can stay connected.</>,
+    ],
+  },
+  {
+    icon: <ShieldCheck />,
+    q: ["Pode estragar o teclado?", "Can it break the keyboard?"],
+    a: [
+      <>O {PRODUCT} nunca atualiza o firmware. Tudo o que ele muda pode ser desfeito: dá para restaurar um backup ou voltar ao padrão de fábrica.</>,
+      <>{PRODUCT} never updates the firmware. Everything it changes can be undone: you can restore a backup or go back to factory defaults.</>,
+    ],
+  },
+  {
+    icon: <Languages />,
+    q: ["Tem em inglês?", "Is it available in Portuguese?"],
+    a: [
+      <>Sim. O site, o app e o Dorsal Screen têm português e inglês: troque no seletor {strong("PT / EN")} no topo. Por padrão, abrem no idioma do sistema.</>,
+      <>Yes. The site, the app and Dorsal Screen come in English and Portuguese: switch with the {strong("PT / EN")} selector at the top. By default they open in your system's language.</>,
+    ],
+  },
+  {
+    icon: <Laptop />,
+    q: ["Funciona no Windows ou no macOS?", "Does it work on Windows or macOS?"],
+    a: [
+      <>No navegador, sim: Chrome e Edge têm WebHID, e lá não é preciso nenhuma regra de acesso. O AppImage é só para Linux.</>,
+      <>In the browser, yes: Chrome and Edge have WebHID, and no access rule is needed there. The AppImage is Linux only.</>,
+    ],
+  },
+  {
+    icon: <BadgeInfo />,
+    q: ["É oficial?", "Is it official?"],
+    a: [
+      <>Não. É um projeto independente e aberto, feito a partir do protocolo que o próprio teclado usa, sem relação com a Attack Shark.</>,
+      <>No. It is an independent, open project, built on the protocol the keyboard itself speaks, not affiliated with Attack Shark.</>,
+    ],
+  },
 ];
 
 function Questions() {
   const lang = useLang();
   const tr = useTr();
-  const en = lang === "en";
+  const i = lang === "en" ? 1 : 0;
   return (
-    <section id="perguntas" className="border-t border-white/[0.05]">
-      <div className="mx-auto grid max-w-[1180px] gap-10 px-5 py-20 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]">
+    <section id="questions" className="border-t border-white/[0.05]">
+      {/* Heading, questions, then the GitHub card; on wide screens the card sits under the heading. */}
+      <div className="mx-auto grid max-w-[1180px] gap-10 px-5 py-20 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] lg:grid-rows-[auto_1fr] lg:gap-y-8">
         <ScrollReveal>
           <h2 className="text-[32px] font-semibold leading-[1.1] tracking-[-0.025em] sm:text-[40px]">{tr("Perguntas.", "Questions.")}</h2>
+          <p className="mt-4 max-w-[36ch] text-lg text-neutral-400">{tr("O que mais perguntam antes de instalar.", "What people ask most before installing.")}</p>
         </ScrollReveal>
-        <ScrollReveal delay={0.12} y={24}>
+        <ScrollReveal delay={0.2} className="order-last lg:order-none lg:col-start-1 lg:row-start-2 lg:self-start">
+          <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.07] bg-[#101112] p-5">
+            <span className="grid size-9 place-items-center rounded-xl bg-[#5fd0e6]/10 text-[#5fd0e6]">
+              <MessageCircleQuestion className="size-[18px]" />
+            </span>
+            <p className="text-[15px] font-medium text-neutral-100">{tr("Não achou sua pergunta?", "Didn't find your question?")}</p>
+            <p className="text-sm text-neutral-400">{tr("Abra uma issue no GitHub: dúvidas, erros e ideias são bem-vindos.", "Open an issue on GitHub: questions, bugs and ideas are welcome.")}</p>
+            <ButtonLink href={`${REPO}/issues`} target="_blank" rel="noreferrer" variant="secondary" size="md" className="mt-1 w-fit">
+              {tr("Abrir uma issue", "Open an issue")}
+            </ButtonLink>
+          </div>
+        </ScrollReveal>
+        <ScrollReveal delay={0.12} y={24} className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
           <BouncyAccordion
-            items={QUESTIONS.map(([qp, ap, qe, ae], i) => ({ id: String(i), title: en ? qe : qp, description: en ? ae : ap }))}
-            classNames={{ item: "bg-[#121315]", title: "whitespace-normal text-base text-neutral-100", description: "text-neutral-400" }}
+            items={QUESTIONS.map((q, n) => ({ id: String(n), icon: q.icon, title: q.q[i], description: q.a[i] }))}
+            classNames={{
+              item: "bg-[#121315]",
+              trigger: "min-h-[60px]",
+              icon: "size-8 rounded-lg bg-white/[0.05] text-neutral-300 [&_svg]:size-4",
+              title: "whitespace-normal text-base text-neutral-100",
+              description: "pl-12 text-neutral-400",
+            }}
           />
         </ScrollReveal>
       </div>
