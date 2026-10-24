@@ -1,0 +1,2 @@
+# Attack Shark X85 Pro (RongYuan YC3123): acesso WebHID para o usuário da sessão
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3151", ATTRS{idProduct}=="5002|5006", TAG+="uaccess"
