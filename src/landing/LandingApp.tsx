@@ -213,7 +213,7 @@ function Hero() {
           legends={view === "keys"}
           light={view === "light" ? DEMO_LIGHT : undefined}
           sideLight={view === "light" ? DEMO_SIDE : undefined}
-          fallback={<img src="/landing/keys.png" alt={tr("O configurador mostrando o teclado de cima", "The configurator showing the keyboard from above")} className="mx-auto h-full object-contain" />}
+          fallback={<img src={shot(lang, "keys.png")} alt={tr("O configurador mostrando o teclado de cima", "The configurator showing the keyboard from above")} className="mx-auto h-full object-contain" />}
         />
         {/* As in the app: over the TFT the rest of the board falls into shadow. */}
         <div
@@ -248,6 +248,9 @@ function Hero() {
   );
 }
 
+/** Captures of the app in the page's language: public/landing/pt and public/landing/en. */
+const shot = (lang: Lang, file: string) => `/landing/${lang}/${file}`;
+
 const FEATURES = [
   {
     id: "tela",
@@ -259,7 +262,7 @@ const FEATURES = [
       ["Acerta o relógio do teclado com um clique", "Sets the keyboard's clock in one click"],
       ["O envio continua com a janela em segundo plano", "Uploads keep going with the window in the background"],
     ],
-    image: "/landing/screen.png",
+    image: "screen.png",
     alt: ["A seção Tela: a TFT em 3D com uma imagem de pôr do sol e os controles de envio", "The Screen section: the TFT in 3D with a sunset image and the upload controls"],
   },
   {
@@ -272,7 +275,7 @@ const FEATURES = [
       ["As teclas trocadas aparecem em âmbar", "Changed keys show in amber"],
       ["Volta ao padrão de fábrica a qualquer momento", "Back to factory defaults at any time"],
     ],
-    image: "/landing/keys.png",
+    image: "keys.png",
     alt: ["A seção Teclas: o teclado visto de cima com as legendas", "The Keys section: the keyboard from above with its legends"],
   },
   {
@@ -285,7 +288,7 @@ const FEATURES = [
       ["Luz lateral com efeito próprio", "Side light with its own effect"],
       ["Um só botão aplica tudo", "One button applies it all"],
     ],
-    image: "/landing/light.png",
+    image: "light.png",
     alt: ["A seção Iluminação: o teclado com a faixa lateral acesa e a grade de efeitos", "The Lighting section: the keyboard with its side band lit and the grid of effects"],
   },
   {
@@ -301,7 +304,7 @@ const FEATURES = [
       ["Repouso e sono profundo no 2.4G e no Bluetooth", "Sleep and deep sleep on 2.4G and Bluetooth"],
       ["Backup de tudo num arquivo", "Back everything up to a file"],
     ],
-    image: "/landing/system.png",
+    image: "system.png",
     alt: ["A seção Sistema: o teclado de lado e os cartões de resposta, bateria e reset", "The System section: the keyboard from the side and the response, battery and reset cards"],
   },
 ] as const;
@@ -326,7 +329,7 @@ function Features() {
           </ScrollReveal>
           <ScrollReveal delay={0.12} y={24}>
             <figure className="m-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0f1011]">
-              <img src={f.image} alt={f.alt[i]} loading="lazy" className="block w-full" />
+              <img src={shot(lang, f.image)} alt={f.alt[i]} loading="lazy" className="block w-full" />
             </figure>
           </ScrollReveal>
         </article>
@@ -336,6 +339,7 @@ function Features() {
 }
 
 function Mini() {
+  const lang = useLang();
   const tr = useTr();
   return (
     <section className="border-t border-white/[0.05] bg-[#0d0e0f]">
@@ -353,7 +357,7 @@ function Mini() {
           </ButtonLink>
         </ScrollReveal>
         <ScrollReveal delay={0.12} y={24}>
-          <img src="/landing/mini.png" alt={tr("O Dorsal Screen: a tela do teclado em 3D, o zoom e os botões de enviar", "Dorsal Screen: the keyboard's screen in 3D, the zoom and the send buttons")} loading="lazy" className="mx-auto w-full max-w-[420px]" />
+          <img src={shot(lang, "mini.png")} alt={tr("O Dorsal Screen: a tela do teclado em 3D, o zoom e os botões de enviar", "Dorsal Screen: the keyboard's screen in 3D, the zoom and the send buttons")} loading="lazy" className="mx-auto w-full max-w-[420px]" />
         </ScrollReveal>
       </div>
     </section>

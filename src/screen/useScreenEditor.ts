@@ -45,7 +45,7 @@ export function useScreenEditor(screenPx: number | (() => number)) {
     if (sample)
       void fetch(sample)
         .then((r) => r.blob())
-        .then((b) => setFile(new File([b], "amostra.png", { type: b.type })));
+        .then((b) => setFile(new File([b], tr("amostra.png", "sample.png"), { type: b.type })));
   }, []);
 
   useEffect(() => {
