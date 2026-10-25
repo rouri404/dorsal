@@ -55,3 +55,7 @@ O teclado foi estudado por engenharia reversa, para interoperabilidade; o que se
 - **Fora do escopo:** atualização de firmware, porque uma falha pode inutilizar o teclado.
 
 Descobertas novas (um comando, uma função Fn desconhecida, o canal do dongle) são muito bem-vindas, mesmo sem código: abra uma issue com os bytes enviados e recebidos.
+
+## Licença
+
+O Dorsal é licenciado sob a [GPL-3.0-or-later](LICENSE). Ao enviar um pull request, você concorda que a sua contribuição seja publicada sob a mesma licença.

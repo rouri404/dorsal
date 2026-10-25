@@ -117,6 +117,14 @@ Issues, descobertas sobre o protocolo e pull requests são bem-vindos: veja o [`
 
 ---
 
+### Licença
+
+O Dorsal é software livre, sob a [GNU General Public License v3.0](LICENSE) ou qualquer versão posterior: você pode usar, estudar, modificar e compartilhar, desde que o que compartilhar continue sob a mesma licença.
+
+Os componentes de interface em `src/components/motion` e `src/lib` vêm do [beUI](https://beui.dev), sob a [licença MIT](src/components/motion/LICENSE).
+
+---
+
 ### Aviso
 
 Projeto independente, sem relação com a Attack Shark. Attack Shark e X85 são marcas dos seus donos. Nenhum código proprietário foi copiado: o protocolo foi reimplementado a partir do comportamento observado do teclado e do site oficial.

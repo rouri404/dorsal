@@ -115,6 +115,14 @@ Issues, protocol findings and pull requests are welcome: see [`CONTRIBUTING.md`]
 
 ---
 
+### License
+
+Dorsal is free software under the [GNU General Public License v3.0](LICENSE), or any later version: you can use, study, change and share it, as long as what you share stays under the same license.
+
+The interface components in `src/components/motion` and `src/lib` come from [beUI](https://beui.dev), under the [MIT license](src/components/motion/LICENSE).
+
+---
+
 ### Disclaimer
 
 Independent project, not affiliated with Attack Shark. Attack Shark and X85 are trademarks of their owners. No proprietary code was copied: the protocol was reimplemented from the observed behaviour of the keyboard and the official website.

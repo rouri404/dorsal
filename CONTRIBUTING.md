@@ -55,3 +55,7 @@ The keyboard is reverse engineered for interoperability; [`docs/protocol.md`](do
 - **Out of scope:** firmware updates, because a failed one can brick the keyboard.
 
 New findings (a command, an unknown Fn function, the dongle's channel) are very welcome, even without code: open an issue with the bytes you sent and received.
+
+## License
+
+Dorsal is licensed under the [GPL-3.0-or-later](LICENSE). By sending a pull request, you agree that your contribution is released under the same license.

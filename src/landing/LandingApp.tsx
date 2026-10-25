@@ -66,6 +66,9 @@ export function LandingApp() {
         </span>
         <span className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <span>{tr("Projeto independente, sem relação com a Attack Shark.", "Independent project, not affiliated with Attack Shark.")}</span>
+          <a href={`${REPO}/blob/main/LICENSE`} target="_blank" rel="noreferrer" className="text-neutral-400 transition-colors hover:text-white">
+            {tr("Software livre, GPL-3.0", "Free software, GPL-3.0")}
+          </a>
           <a href={`${REPO}#readme`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-neutral-400 transition-colors hover:text-white">
             <GitHubMark className="size-4" />
           </a>
