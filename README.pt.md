@@ -100,7 +100,7 @@ O protocolo está documentado em [`docs/protocol.md`](docs/protocol.md) (em ingl
 ### Distribuição
 
 1. **AppImages:** `npm run appimage` e `npm run appimage:mini` geram os dois arquivos em `release/` e `release-mini/`.
-2. **Site:** `npm run build` gera `dist/`. Na Vercel, o `vercel.json` manda toda rota que não é arquivo para o `index.html`.
+2. **Site:** `npm run build` gera `dist/`. Na Vercel, o `vercel.json` manda cada rota para o seu HTML (`/`, `/en` e o app), cada um com título, tags de prévia e conteúdo legível para buscadores.
 3. **Downloads:** a landing aponta para os dois AppImages na raiz do site, ou em `VITE_DOWNLOAD_BASE` (um release do GitHub, por exemplo). Veja [`docs/deployment.md`](docs/deployment.md).
 
 

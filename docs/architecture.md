@@ -2,7 +2,7 @@
 
 Dorsal is one web application with two entry points, packaged by Electron for the desktop:
 
-- **`index.html`** — the site: the landing page and the configurator, chosen by the route.
+- **`index.html`** — the site: the landing page and the configurator, chosen by the route. The build turns it into one file per kind of route (`index.html`, `en.html`, `app.html`, `app-en.html`), each with its own head and crawler-readable content from `src/seo/`.
 - **`mini.html`** — Dorsal Screen, the mini app for the TFT ([details](dorsal-screen.md)).
 
 ```mermaid
@@ -86,4 +86,4 @@ Texts are written in place as `tr("Português", "English")` (`src/i18n/index.ts`
 
 ## Desktop shell
 
-`electron/main.cjs` serves `dist/` from `app://x85/`, a privileged scheme that behaves like HTTPS, so WebHID works and the site's routes resolve to `index.html`. It grants HID access only to vendor `0x3151`, prefers the cable, and uses the GPU even when Chromium blocklists the driver. Minimised windows are left to Chromium's normal background handling: keeping them "visible" made the compositor wait on frames that are never shown, stalling HID calls. `electron/mini.cjs` opens the same shell on the mini app.
+`electron/main.cjs` serves `dist/` from `app://x85/`, a privileged scheme that behaves like HTTPS, so WebHID works and the configurator's routes resolve to `app.html` (`app-en.html` under `/en`). It grants HID access only to vendor `0x3151`, prefers the cable, and uses the GPU even when Chromium blocklists the driver. Minimised windows are left to Chromium's normal background handling: keeping them "visible" made the compositor wait on frames that are never shown, stalling HID calls. `electron/mini.cjs` opens the same shell on the mini app.

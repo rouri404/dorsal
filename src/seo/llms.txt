@@ -1,0 +1,33 @@
+# Dorsal
+
+> Dorsal is a free, open-source (GPL-3.0) configurator for the Attack Shark X85 Pro mechanical keyboard. It runs in the browser through WebHID, or as a Linux AppImage, and replaces the vendor's Windows-only software and web driver. It sets images and GIFs on the keyboard's 128×128 TFT screen, remaps keys, controls the RGB lighting and changes system settings, with no Windows and no driver.
+
+## What it solves
+
+- The vendor's configurator needs Windows and a local driver; on Linux it cannot reach the keyboard.
+- On Linux, the keyboard's hidraw devices belong to root, so no browser can open them. Dorsal ships a one-line udev rule that fixes this.
+- The X85 Pro's firmware (id 3451) is missing from the vendor web app's catalog, so even there the screen editor does not show up.
+
+## How it works
+
+- **Protocol:** the keyboard takes 64-byte HID feature reports on its configuration interface (usage page 0xFFFF), in the RongYuan YC3123 command family. Dorsal reimplements the protocol from observed behaviour; no proprietary code is copied.
+- **WebHID:** in Chrome, Edge, Chromium or Brave, the page asks for the keyboard (vendor 0x3151, product 0x5002 over the USB cable) and talks to it directly. The 2.4G dongle (0x5006) does not take settings yet.
+- **udev rule (Linux):** `curl -fsSL @SITE@/udev.sh | sudo sh` installs `/etc/udev/rules.d/70-attack-shark-x85.rules`, which tags the keyboard's hidraw nodes with `uaccess`, so the logged-in user can open them without root. Replug the cable afterwards.
+- **AppImage:** an Electron build of the same web app, with WebHID permissions limited to the keyboard. A second AppImage, Dorsal Screen, only edits the TFT screen.
+
+## Features
+
+- Images and GIFs on the TFT screen (RGB565, 128×128), with framing, zoom and a 3D preview; clock sync.
+- Key remapping on the normal and Fn layers: letters, symbols, media keys, shortcuts, mouse buttons.
+- RGB lighting: effect, colour, brightness and speed.
+- Polling rate (up to 8000 Hz), debounce and sleep timers.
+- Backup to a JSON file and restore, writing only what differs.
+
+## Links
+
+- [Website](@SITE@/): landing page, in Portuguese; [English](@SITE@/en)
+- [Web app](@SITE@/en/app): the configurator, needs the keyboard over USB
+- [Source code](@REPO@): GPL-3.0
+- [Protocol notes](@REPO@/blob/main/docs/protocol.md): commands, report formats and the key matrix
+- [Troubleshooting](@REPO@/blob/main/docs/troubleshooting.md): access rules, virtual machines, the dongle
+- [Releases](@REPO@/releases/latest): Dorsal and Dorsal Screen AppImages

@@ -1,13 +1,19 @@
 {
+  "trailingSlash": false,
   "rewrites": [
+    { "source": "/en", "destination": "/en.html" },
+    { "source": "/en/app/:path*", "destination": "/app-en.html" },
+    { "source": "/en/app", "destination": "/app-en.html" },
+    { "source": "/app/:path*", "destination": "/app.html" },
+    { "source": "/app", "destination": "/app.html" },
     {
-      "source": "/((?!assets/|landing/|mini\\.html|favicon\\.svg|icon\\.png|og\\.png|robots\\.txt|udev\\.sh|sitemap\\.xml|.*\\.AppImage).*)",
+      "source": "/((?!assets/|landing/|mini\\.html|favicon\\.svg|icon\\.png|og\\.png|og-pt\\.png|robots\\.txt|udev\\.sh|sitemap\\.xml|llms\\.txt|.*\\.AppImage).*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
     {
-      "source": "/udev.sh",
+      "source": "/(udev\\.sh|llms\\.txt)",
       "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
     }
   ]

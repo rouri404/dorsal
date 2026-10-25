@@ -98,7 +98,7 @@ The protocol is documented in [`docs/protocol.md`](docs/protocol.md), with reads
 ### Distribution
 
 1. **AppImages:** `npm run appimage` and `npm run appimage:mini` build both files into `release/` and `release-mini/`.
-2. **Website:** `npm run build` builds `dist/`. On Vercel, `vercel.json` sends every route that is not a file to `index.html`.
+2. **Website:** `npm run build` builds `dist/`. On Vercel, `vercel.json` sends each route to its own HTML file (`/`, `/en` and the app), each with its own title, preview tags and readable content for search engines.
 3. **Downloads:** the landing page links to both AppImages at the site's root, or at `VITE_DOWNLOAD_BASE` (a GitHub release, for example). See [`docs/deployment.md`](docs/deployment.md).
 
 

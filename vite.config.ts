@@ -4,28 +4,63 @@ import { fileURLToPath, URL } from "node:url";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { seoBody, seoHead, type SeoSite } from "./src/seo/html";
+import type { SeoLang, SeoPage } from "./src/seo/meta";
 
-/** robots.txt and sitemap.xml for the site's address (VITE_SITE_URL), written into the build. */
-function seoFiles(site: string): Plugin {
-  const pages: [string, string][] = [
-    ["/", "/en"],
-    ["/app/tela", "/en/app/screen"],
-    ["/app/teclas", "/en/app/keys"],
-    ["/app/iluminacao", "/en/app/lighting"],
-    ["/app/sistema", "/en/app/system"],
+/**
+ * One HTML file per kind of route, each with its own head and readable content for crawlers:
+ * index.html (/), en.html (/en), app.html (/app/*) and app-en.html (/en/app/*). Also robots.txt,
+ * sitemap.xml and llms.txt for the site's address (VITE_SITE_URL).
+ */
+function seoFiles(info: SeoSite): Plugin {
+  const { site, repo } = info;
+  const variants: [string, SeoPage, SeoLang][] = [
+    ["index.html", "landing", "pt"],
+    ["en.html", "landing", "en"],
+    ["app.html", "app", "pt"],
+    ["app-en.html", "app", "en"],
   ];
-  const url = (pt: string, en: string, loc: string) =>
-    `  <url>\n    <loc>${site}${loc}</loc>\n    <xhtml:link rel="alternate" hreflang="pt-BR" href="${site}${pt}" />\n    <xhtml:link rel="alternate" hreflang="en" href="${site}${en}" />\n  </url>`;
+  const fill = (html: string, page: SeoPage, lang: SeoLang) =>
+    html
+      .replace('lang="pt-BR"', `lang="${lang === "en" ? "en" : "pt-BR"}"`)
+      .replace("<!--seo:head-->", seoHead(page, lang, info))
+      .replace("<!--seo:body-->", seoBody(page, lang, info));
+  const routeOf = (url: string): [SeoPage, SeoLang] => {
+    const path = url.split("?")[0];
+    const lang = /^\/en(\/|$)/.test(path) ? "en" : "pt";
+    return [/^(\/en)?\/app(\/|$)/.test(path) ? "app" : "landing", lang];
+  };
+  const alternates = (pt: string, en: string) =>
+    [["pt-BR", pt], ["en", en], ["x-default", en]].map(([l, p]) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${site}${p}" />`).join("\n");
+  const sitemap = ["/", "/en"].map((loc) => `  <url>\n    <loc>${site}${loc}</loc>\n${alternates("/", "/en")}\n  </url>`).join("\n");
+  const llms = readFileSync(fileURLToPath(new URL("./src/seo/llms.txt", import.meta.url)), "utf8").replaceAll("@SITE@", site).replaceAll("@REPO@", repo);
   return {
-      name: "seo-files",
-      generateBundle() {
-        this.emitFile({ type: "asset", fileName: "robots.txt", source: `User-agent: *\nAllow: /\n\nSitemap: ${site}/sitemap.xml\n` });
-        this.emitFile({
-          type: "asset",
-          fileName: "sitemap.xml",
-          source: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${pages.flatMap(([pt, en]) => [url(pt, en, pt), url(pt, en, en)]).join("\n")}\n</urlset>\n`,
-        });
-      },
+    name: "seo-files",
+    enforce: "post",
+    // In dev every route gets the page it will have on the site; the build fills them below.
+    transformIndexHtml: (html, ctx) => (ctx.server && html.includes("<!--seo:head-->") ? fill(html, ...routeOf(ctx.originalUrl ?? ctx.path)) : html),
+    configureServer: (server) =>
+      void server.middlewares.use((req, res, next) => {
+        if ((req.url ?? "").split("?")[0] !== "/llms.txt") return next();
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+        res.end(llms);
+      }),
+    generateBundle(_options, bundle) {
+      const template = bundle["index.html"];
+      if (template?.type !== "asset") return;
+      const html = String(template.source);
+      for (const [fileName, page, lang] of variants) {
+        if (fileName === "index.html") template.source = fill(html, page, lang);
+        else this.emitFile({ type: "asset", fileName, source: fill(html, page, lang) });
+      }
+      this.emitFile({ type: "asset", fileName: "robots.txt", source: `User-agent: *\nAllow: /\n\nSitemap: ${site}/sitemap.xml\n` });
+      this.emitFile({
+        type: "asset",
+        fileName: "sitemap.xml",
+        source: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${sitemap}\n</urlset>\n`,
+      });
+      this.emitFile({ type: "asset", fileName: "llms.txt", source: llms });
+    },
   };
 }
 
@@ -74,10 +109,13 @@ function serveAppImages(): Plugin {
 // Absolute paths: routes like /en/app/keys load their assets from the root, on the web and
 // in the AppImages (which serve dist from app://x85/).
 export default defineConfig(({ mode }) => {
-  const site = (loadEnv(mode, process.cwd(), "VITE_").VITE_SITE_URL || "https://dorsal.cotoo.dev").replace(/\/$/, "");
+  const env = loadEnv(mode, process.cwd(), "VITE_");
+  const site = (env.VITE_SITE_URL || "https://dorsal.cotoo.dev").replace(/\/$/, "");
+  const repo = (env.VITE_REPO_URL || "https://github.com/rouri404/dorsal").replace(/\/$/, "");
+  const { version } = JSON.parse(readFileSync(fileURLToPath(new URL("./package.json", import.meta.url)), "utf8")) as { version: string };
   return {
     base: "/",
-    plugins: [react(), tailwindcss(), seoFiles(site), udevScript(site), serveAppImages()],
+    plugins: [react(), tailwindcss(), seoFiles({ site, repo, version }), udevScript(site), serveAppImages()],
     build: {
       rollupOptions: {
         input: {

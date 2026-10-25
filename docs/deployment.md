@@ -18,7 +18,16 @@ The site lives at **[dorsal.cotoo.dev](https://dorsal.cotoo.dev)**. It is a stat
 
 ### Routing
 
-`vercel.json` sends every path that is not a file to `index.html`, so `/en/app/keys` opens the configurator directly. Files keep their own paths: `/assets/*`, `/landing/*`, `/mini.html`, the icons, `og.png`, `robots.txt`, `sitemap.xml`, `udev.sh` (the one-line Linux setup the landing page shows) and the AppImages.
+The build writes one HTML file per kind of route, each with its own title, description, canonical link, `hreflang` links, link-preview tags and readable content for crawlers that do not run JavaScript (React replaces it when it mounts). `vercel.json` sends each route to its file:
+
+| Route | File | Indexed |
+|---|---|---|
+| `/` | `index.html` (Portuguese landing page, with JSON-LD) | yes |
+| `/en` | `en.html` (English landing page, with JSON-LD) | yes |
+| `/app/*` | `app.html` | no (`noindex, follow`) |
+| `/en/app/*` | `app-en.html` | no (`noindex, follow`) |
+
+Files keep their own paths: `/assets/*`, `/landing/*`, `/mini.html`, the icons, `og.png` and `og-pt.png`, `robots.txt`, `sitemap.xml`, `llms.txt`, `udev.sh` (the one-line Linux setup the landing page shows) and the AppImages. The texts and tags live in `src/seo/`; `robots.txt`, `sitemap.xml` and `llms.txt` follow `VITE_SITE_URL`.
 
 ## The AppImages
 
@@ -43,4 +52,5 @@ When the version changes, update `version` in `package.json` and `VERSION` in `s
 - [ ] `/mini.html` opens Dorsal Screen.
 - [ ] The download buttons reach both AppImages.
 - [ ] `/robots.txt` and `/sitemap.xml` name `dorsal.cotoo.dev`.
-- [ ] A shared link shows the preview image (`/og.png`).
+- [ ] A shared link shows the preview image: `/og-pt.png` for `/`, `/og.png` for `/en`.
+- [ ] `curl -s https://<site>/en` shows the English title and content without JavaScript; `/llms.txt` is plain text.

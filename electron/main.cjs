@@ -25,7 +25,9 @@ function serveDist() {
     const { pathname } = new URL(request.url);
     const file = path.join(DIST, decodeURIComponent(pathname));
     const inside = file.startsWith(DIST + path.sep);
-    const target = inside && fs.existsSync(file) && fs.statSync(file).isFile() ? file : path.join(DIST, "index.html");
+    // Routes get the configurator's page (app.html, or app-en.html under /en), as on the site.
+    const page = pathname.startsWith("/en/") ? "app-en.html" : "app.html";
+    const target = inside && fs.existsSync(file) && fs.statSync(file).isFile() ? file : path.join(DIST, page);
     return net.fetch(pathToFileURL(target).toString());
   });
 }

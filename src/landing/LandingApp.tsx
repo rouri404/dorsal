@@ -12,6 +12,7 @@ import { useLang, useTr, type Lang } from "../i18n";
 import { keyShortName } from "../i18n/labels";
 import { navigate, pathOf } from "../router";
 import { GitHubMark, Logo, PRODUCT, REPO, SITE } from "../brand";
+import { metaFor } from "../seo/meta";
 import { cn } from "@/lib/utils";
 import { Button, ButtonLink } from "@/components/motion/button/base";
 import { Tabs, TabsList, TabsTrigger } from "@/components/motion/tabs";
@@ -47,8 +48,9 @@ const go = (path: string) => (e: React.MouseEvent) => {
 
 export function LandingApp() {
   const tr = useTr();
+  const lang = useLang();
   useEffect(() => {
-    document.title = tr(`${PRODUCT}: o X85 Pro configurado no Linux`, `${PRODUCT}: the X85 Pro, configured on Linux`);
+    document.title = metaFor("landing", lang).title;
   });
   return (
     <div className="min-h-screen bg-[#0a0b0c] text-neutral-100">
