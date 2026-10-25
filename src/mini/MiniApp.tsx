@@ -1,8 +1,8 @@
 // Dorsal Screen: a small widget that only edits the keyboard's TFT.
-// Same protocol and upload path as the full configurator, one screen of controls.
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { Check, Clock, Crosshair, ImagePlus, Minus, Plus, Timer, TriangleAlert, Upload, Usb, X } from "lucide-react";
+import { Logo } from "../brand";
 import { describeConnectError, useDevice } from "../device";
 import { useLang, useTr, type Lang } from "../i18n";
 import { DEFAULT_VIEW, type Fit } from "../screen/load";
@@ -29,9 +29,10 @@ export function MiniApp({ onLang }: { onLang: (l: Lang) => void }) {
   return (
     <div className="grid min-h-screen place-items-center bg-transparent" onDragOver={(e) => e.preventDefault()} onDrop={ed.onDrop}>
       <main className="relative flex h-[600px] w-[420px] flex-col overflow-hidden rounded-[24px] border border-white/[0.07] bg-[#101112] px-5 pb-4 pt-4 text-neutral-100 select-none">
-        {/* Top bar doubles as the window's drag handle. */}
         <header className="relative z-10 flex h-9 items-center justify-between [-webkit-app-region:drag]">
-          <span className="text-sm text-neutral-400">Dorsal Screen</span>
+          <span className="flex items-center gap-2 text-sm text-neutral-400">
+            <Logo className="size-5" /> Dorsal Screen
+          </span>
           <div className={cn("flex items-center gap-1", NO_DRAG)}>
             <span className="flex items-center rounded-lg bg-white/[0.05] p-0.5" role="group" aria-label="Idioma / Language">
               {(["pt", "en"] as Lang[]).map((l) => (
@@ -59,8 +60,6 @@ export function MiniApp({ onLang }: { onLang: (l: Lang) => void }) {
           </div>
         </header>
 
-        {/* The keyboard's screen in 3D, lit, its light falling on the desk; the keys around
-            it fade out. Dragging moves the image on the screen and the wheel zooms. */}
         <div
           className="relative -mx-5 -mt-9 h-[344px] touch-none [mask-image:radial-gradient(ellipse_56%_50%_at_50%_50%,#000_45%,transparent_100%)]"
           style={{ cursor: source ? "grab" : "default" }}

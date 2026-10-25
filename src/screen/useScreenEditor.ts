@@ -13,8 +13,8 @@ import { useLang } from "../i18n";
 
 const MAX_FRAMES = 60;
 // The zoom slider is logarithmic: 0 → 20%, 100 → 800%, 100% sits a little left of centre.
-export const ZOOM_MIN = 0.2;
-export const ZOOM_MAX = 8;
+const ZOOM_MIN = 0.2;
+const ZOOM_MAX = 8;
 export const toZoom = (s: number) => ZOOM_MIN * Math.pow(ZOOM_MAX / ZOOM_MIN, s / 100);
 export const toSlider = (z: number) => Math.round((100 * Math.log(z / ZOOM_MIN)) / Math.log(ZOOM_MAX / ZOOM_MIN));
 const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
@@ -33,9 +33,7 @@ export function useScreenEditor(screenPx: number | (() => number)) {
   const [delay, setDelay] = useState(100);
   const [clock, setClock] = useState<"idle" | "done" | "error">("idle");
   const [loadError, setLoadError] = useState<string | null>(null);
-  // What the TFT shows, drawn off-screen: the 3D model's screen texture.
   const [screen] = useState(() => Object.assign(document.createElement("canvas"), { width: SCREEN_W, height: SCREEN_H }));
-  /** A small canvas that mirrors the TFT, blurred into its glow. */
   const glow = useRef<HTMLCanvasElement>(null);
   const drag = useRef<{ x: number; y: number } | null>(null);
 
@@ -74,7 +72,6 @@ export function useScreenEditor(screenPx: number | (() => number)) {
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
     };
-    // Nothing of the user's known yet: the keyboard's own clock face, ticking.
     let frame: (i: number) => void = () => drawClockFace(ctx, SCREEN_W, SCREEN_H, lang);
     let count = 1;
     let interval = 100;
@@ -146,7 +143,6 @@ export function useScreenEditor(screenPx: number | (() => number)) {
           : job.status === "error"
             ? tr("Falhou, tentar de novo", "Failed, try again")
             : tr("Enviar para a tela", "Send to screen"),
-    /** Drag to move the image on the TFT, wheel to zoom, drop a file anywhere. */
     handlers: {
       onPointerDown: (e: PointerEvent<HTMLElement>) => {
         if (!source) return;

@@ -72,7 +72,6 @@ const differ = (a: unknown, b: unknown) => JSON.stringify(a) !== JSON.stringify(
 const keyDiff = (want: KeyValue[] | undefined, have: KeyValue[] | undefined): [number, KeyValue][] =>
   want && have ? want.flatMap((v, pos) => (pos < have.length && !sameValue(v, have[pos]) ? [[pos, v] as [number, KeyValue]] : [])) : [];
 
-/** Compares a backup with what the keyboard holds now. */
 export function planRestore(backup: Backup, now: Backup): RestorePlan {
   const pick = <K extends "light" | "sideLight" | "reportRate" | "debounce" | "sleep">(k: K) => (backup[k] !== undefined && differ(backup[k], now[k]) ? backup[k] : undefined);
   return {
@@ -88,7 +87,6 @@ export function planRestore(backup: Backup, now: Backup): RestorePlan {
 
 export const isEmptyPlan = (p: RestorePlan) => !p.keys.length && !p.fnKeys.length && [p.light, p.sideLight, p.reportRate, p.debounce, p.sleep].every((v) => v === undefined);
 
-/** Reads what a backup covers, fresh from the keyboard. */
 export async function readCurrent(kb: X85): Promise<Backup> {
   return {
     keymap: await kb.keymap(0, 0),

@@ -1,6 +1,4 @@
-// The X85's screen corner in 3D: ↑, the TFT, ↓ and → on a slab of the case, as on the
-// real board (the TFT sits right above →). The TFT shows `screen`, a 128×128 canvas the
-// caller keeps drawing into, so GIFs and the crop play live on the model.
+// The X85's screen corner in 3D. The TFT shows `screen`, a canvas the caller keeps drawing into.
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as THREE from "three";
@@ -11,13 +9,12 @@ const KEY = 0.92; // a 1u keycap, with the gap to its neighbours
 const KEY_H = 0.5;
 const TOP_SCALE = 0.84; // keycap sculpt: the top is narrower than the base
 
-/** A keycap whose upper vertices are drawn in, like a cylindrical-profile cap. */
 function keycapGeometry() {
   const g = new RoundedBoxGeometry(KEY, KEY_H, KEY, 4, 0.1);
   const pos = g.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const y = pos.getY(i);
-    const t = (y + KEY_H / 2) / KEY_H; // 0 at the base, 1 at the top
+    const t = (y + KEY_H / 2) / KEY_H;
     const k = 1 - (1 - TOP_SCALE) * t;
     pos.setX(i, pos.getX(i) * k);
     pos.setZ(i, pos.getZ(i) * k);
@@ -69,8 +66,6 @@ export function Screen3D({ screen, className, fallback }: { screen: HTMLCanvasEl
     scene.environment = env;
     scene.environmentIntensity = 0.55;
 
-    // High and close over the TFT, so the screen reads almost face-on; the keys around
-    // it are context and run off the frame.
     const camera = new THREE.PerspectiveCamera(16, 1, 0.1, 50);
     camera.position.set(0, 5.3, 2.75);
     camera.lookAt(0, 0.3, -0.16);
@@ -94,7 +89,6 @@ export function Screen3D({ screen, className, fallback }: { screen: HTMLCanvasEl
     board.position.set(-0.5, 0, 0.5);
     pivot.add(board);
 
-    // The slab of case the four keys sit in.
     const caseMat = new THREE.MeshStandardMaterial({ color: 0x232529, metalness: 0.75, roughness: 0.42 });
     const slab = new THREE.Mesh(new RoundedBoxGeometry(2.36, 0.42, 2.36, 6, 0.16), caseMat);
     slab.position.y = -0.21;
@@ -124,15 +118,13 @@ export function Screen3D({ screen, className, fallback }: { screen: HTMLCanvasEl
     addKey(-0.5, 0.5, "↓");
     addKey(0.5, 0.5, "→");
 
-    // The TFT module: a low glossy bezel, the live screen, a sheet of glass over it.
     const bezel = new THREE.Mesh(new RoundedBoxGeometry(KEY, 0.34, KEY, 4, 0.08), new THREE.MeshStandardMaterial({ color: 0x08090a, roughness: 0.28, metalness: 0.2 }));
     bezel.position.set(0.5, 0.19, -0.5);
     bezel.castShadow = bezel.receiveShadow = true;
     board.add(bezel);
     const screenTex = new THREE.CanvasTexture(screen);
     screenTex.colorSpace = THREE.SRGBColorSpace;
-    // The 128 × 128 image is shown far larger than the 0.85" panel, whose pixels the eye cannot
-    // pick out: smooth it rather than drawing each pixel as a block.
+    // Smoothed: the real panel's pixels are too small to see as blocks.
     screenTex.magFilter = THREE.LinearFilter;
     screenTex.minFilter = THREE.LinearFilter;
     const display = new THREE.Mesh(new THREE.PlaneGeometry(0.74, 0.74), new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false }));
@@ -147,14 +139,12 @@ export function Screen3D({ screen, className, fallback }: { screen: HTMLCanvasEl
     glass.position.set(0.5, 0.366, -0.5);
     board.add(glass);
 
-    // The desk: only the shadow is drawn.
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.ShadowMaterial({ opacity: 0.45 }));
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = -0.62;
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // Hover tilts the board toward the pointer; at rest it sways a little.
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const target = { x: 0, y: 0 };
     const now = { x: 0, y: 0 };

@@ -1,19 +1,16 @@
-// The whole X85 Pro in 3D, built from the physical layout (src/layout/x85.ts): sculpted
-// keycaps with their legends, the knob, the TFT showing a live canvas, per-key light.
-// The camera moves between framings, one per section of the prototype.
+// The X85 Pro in 3D, built from the physical layout in src/layout/x85.ts.
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { BOARD_ROWS, BOARD_UNITS, KNOB_PRESS, KNOB_SLOT, SCREEN_SLOT, X85_KEYS } from "../layout/x85";
+import { BOARD_ROWS, BOARD_UNITS, INDICATORS, KNOB_PRESS, KNOB_SLOT, SCREEN_SLOT, X85_KEYS } from "../layout/x85";
 import type { LightSetting } from "../protocol/x85";
 
 export type Framing = "screen" | "keys" | "light" | "system";
 
 export interface KeyFace {
   label: string;
-  /** Changed from the factory map. */
   edited?: boolean;
   /** Printed faintly: a key that does nothing in this layer. */
   dim?: boolean;
@@ -22,27 +19,19 @@ export interface KeyFace {
 const GAP = 0.08;
 const KEY_H = 0.5;
 const TOP_SCALE = 0.86;
-// The official colourway: caps fade from white on the F-row to near-black on the bottom row.
 const ROW_CAP = [0xdcdddf, 0xaeb1b4, 0x6f7277, 0x505358, 0x37393d, 0x222326];
-// Legend ink per row: dark on the light caps, light on the dark ones.
 const ROW_INK = ["#33353a", "#2c2e33", "#26282c", "#202226", "#d6d8db", "#cfd1d4"];
-// Edited (amber) and selected (teal) inks, deepened on the lighter caps so they stay legible.
 const ROW_EDITED = ["#9a5800", "#8a4f00", "#6a3900", "#5a3000", "#f0b44c", "#f0b44c"];
 const ROW_SELECTED = ["#0b6f86", "#095f73", "#064c5c", "#05404e", "#5fd0e6", "#5fd0e6"];
-// Sculpted profile: each row has its own height and angle, the back rows leaning toward you.
 const ROW_TILT = [0.13, 0.09, 0.04, 0, -0.05, -0.09];
 const ROW_RISE = [0.1, 0.07, 0.035, 0.01, 0, 0.02];
-/** Quarter-unit gap under the F-row, as on the board. */
 const F_GAP = 0.25;
 const DEPTH = BOARD_ROWS + F_GAP;
 
-/** Board units → scene: x across, z towards the viewer, the board centred on the origin. */
 const at = (x: number, w: number, y: number) => new THREE.Vector3(x + w / 2 - BOARD_UNITS / 2, 0, y + (y > 0 ? F_GAP : 0) + 0.5 - DEPTH / 2);
 
-// Each framing says what it looks at, from which direction, through which lens, and how
-// much of the scene (width × height, in board units) must fit; the distance follows from
-// the stage's aspect, so the subject stays centred and whole in any window.
-// Long lenses throughout, like studio product photography: little perspective distortion.
+// `fit` is the scene (width × height, in board units) that must stay whole; the camera
+// distance follows from the stage's aspect.
 interface Shot {
   target: THREE.Vector3;
   dir: THREE.Vector3;
@@ -51,17 +40,14 @@ interface Shot {
 }
 const SCREEN_TOP = at(SCREEN_SLOT.x, 1, SCREEN_SLOT.y).setY(0.62);
 const FRAMINGS: Record<Framing, Shot> = {
-  // The TFT and its neighbours, from in front and well above.
   screen: { target: SCREEN_TOP, dir: new THREE.Vector3(0, 10.7, 4.6), fov: 12, fit: [3.6, 2.5] },
-  // The official product shot: from above, the whole board.
   keys: { target: new THREE.Vector3(0, 0, 0.1), dir: new THREE.Vector3(0, 30, 5.6), fov: 18, fit: [18.6, 8.4] },
-  // Three-quarter view, low enough to see light between the caps and on the case.
   light: { target: new THREE.Vector3(0, -0.3, 0.2), dir: new THREE.Vector3(-13, 15, 25), fov: 20, fit: [19, 10.8] },
-  // A long, low side view: the board as an object.
   system: { target: new THREE.Vector3(0, -0.4, 0), dir: new THREE.Vector3(19, 7.5, 19), fov: 19, fit: [19, 8.5] },
 };
-const TRANSITION_S = 1.1;
-const easeInOut = (p: number) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+const TRANSITION_S = 1;
+// Moves at once and settles slowly: an ease-in start reads as lag after a click.
+const easeOut = (p: number) => 1 - Math.pow(1 - p, 3);
 
 interface CameraState {
   target: THREE.Vector3;
@@ -69,7 +55,6 @@ interface CameraState {
   fov: number;
 }
 
-/** A rounded rectangle centred on the origin, as a shape (or a hole) for extrusion. */
 function roundedRect(w: number, h: number, r: number) {
   const s = new THREE.Shape();
   const x = -w / 2, y = -h / 2;
@@ -90,13 +75,12 @@ function capGeometry(w: number) {
   let g = capGeometries.get(w);
   if (g) return g;
   g = new RoundedBoxGeometry(w - GAP, KEY_H, 1 - GAP, 3, 0.09);
-  // Draw the top in by the same distance on every side, whatever the cap's width.
   const inset = ((1 - GAP) * (1 - TOP_SCALE)) / 2;
   const halfW = (w - GAP) / 2;
   const halfD = (1 - GAP) / 2;
   const pos = g.attributes.position;
   for (let i = 0; i < pos.count; i++) {
-    const t = (pos.getY(i) + KEY_H / 2) / KEY_H; // 0 at the base, 1 at the top
+    const t = (pos.getY(i) + KEY_H / 2) / KEY_H;
     pos.setX(i, pos.getX(i) * ((halfW - inset * t) / halfW));
     pos.setZ(i, pos.getZ(i) * ((halfD - inset * t) / halfD));
   }
@@ -105,7 +89,6 @@ function capGeometry(w: number) {
   return g;
 }
 
-/** All legends share one texture: each key has a cell, 128 px tall and 128 px per unit wide. */
 const ATLAS_W = 2048;
 interface Cell {
   x: number;
@@ -145,10 +128,8 @@ function paintLegend(ctx: CanvasRenderingContext2D, cell: Cell, text: string, di
 
 interface KeyParts {
   pos: number;
-  /** The cap is one instance of the instanced mesh for its width. */
   caps: THREE.InstancedMesh;
   index: number;
-  /** Index among all keys: its switch, its glow and its legend quad. */
   slot: number;
   x: number;
   z: number;
@@ -165,28 +146,23 @@ interface KeyParts {
   v: number;
   seed: number;
   row: number;
-  /** Place along a zig-zag through every key, row by row (for Cobra). */
   s: number;
 }
-
-/* ---------- lighting effects, evaluated every frame for the preview ---------- */
 
 type Effect =
   | "static" | "breathe" | "neon" | "wave" | "ripple" | "raindrop" | "snake" | "reactive" | "converge" | "sine"
   | "kaleido" | "lines" | "laser" | "circle" | "rainbow" | "rain" | "meteor" | "reactiveOff" | "train" | "fireworks";
-/** Each firmware effect, previewed by the motion its name describes. */
 const EFFECT_OF: Record<number, Effect> = {
   1: "static", 2: "breathe", 3: "neon", 4: "wave", 5: "ripple", 6: "raindrop", 7: "snake", 8: "reactive", 9: "converge",
   10: "sine", 11: "kaleido", 12: "lines", 14: "laser", 15: "circle", 16: "rainbow", 17: "rain", 18: "meteor",
   19: "reactiveOff", 23: "train", 24: "fireworks",
 };
 const SIDE_EFFECT_OF: Record<number, Effect> = { 1: "static", 2: "breathe", 3: "neon", 4: "wave", 5: "snake" };
+const WAKE_S = 1.1;
 const tmp = new THREE.Color();
 const frac = (x: number) => x - Math.floor(x);
-/** Deterministic pseudo-random number in 0..1. */
 const hash = (n: number) => frac(Math.sin(n * 12.9898 + 78.233) * 43758.5453);
 
-/** Where a light is: across (u) and down (v) the board, its row, its place along a zig-zag through all keys (s). */
 interface LightPoint {
   u: number;
   v: number;
@@ -195,14 +171,13 @@ interface LightPoint {
   seed: number;
 }
 
-/** Colour and strength (0..1) of the light at a point at time t. */
 function lightAt(l: LightSetting, effect: Effect, p: LightPoint, t: number, out: THREE.Color): number {
   const sp = 0.35 + l.speed * 0.4;
   const { u, v, row, s, seed } = p;
   const d = Math.hypot(u - 0.5, (v - 0.5) * 0.45);
   let hue = u * 0.85;
   let amount = 1;
-  let ownHue = false; // the effect brings its own colours, rainbow or not
+  let ownHue = false;
   switch (effect) {
     case "breathe":
       amount = 0.1 + 0.9 * (0.5 - 0.5 * Math.cos(t * sp * 2.2));
@@ -224,7 +199,6 @@ function lightAt(l: LightSetting, effect: Effect, p: LightPoint, t: number, out:
     case "raindrop":
     case "reactive":
     case "reactiveOff": {
-      // Keys light up (or go dark) at random moments, as if typed on, and fade back.
       const clock = t * sp * (effect === "raindrop" ? 0.5 : 0.7) + hash(seed) * 20;
       const event = Math.floor(clock);
       const on = hash(seed * 7.1 + event) < (effect === "raindrop" ? 0.14 : 0.07);
@@ -277,7 +251,6 @@ function lightAt(l: LightSetting, effect: Effect, p: LightPoint, t: number, out:
       ownHue = true;
       break;
     case "rain": {
-      // Drops fall down each column at their own pace.
       const col = Math.round(u * 16);
       const head = frac(t * sp * 0.35 + hash(col) * 5) * 1.4;
       const dist = head - v;
@@ -311,7 +284,6 @@ function lightAt(l: LightSetting, effect: Effect, p: LightPoint, t: number, out:
   return amount * (l.brightness / 4);
 }
 
-/** Three.js scene of the board, driven imperatively by the React component below. */
 class BoardScene {
   renderer: THREE.WebGLRenderer;
   scene = new THREE.Scene();
@@ -332,11 +304,9 @@ class BoardScene {
   private to!: CameraState;
   private transitionStart = 0;
   aspect = 2;
-  /** Width of the TFT on screen, in CSS pixels, for dragging the image under the pointer. */
   tftPx = 150;
   onFrame?: () => void;
   pixelRatio = 1;
-  /** Set by anything that changes the picture; idle frames are skipped. */
   dirty = true;
   pointer = { x: 0, y: 0, nx: 0, ny: 0 };
   selected: number | null = null;
@@ -360,7 +330,6 @@ class BoardScene {
     r.toneMappingExposure = 0.9;
     host.appendChild(r.domElement);
     r.domElement.style.display = "block";
-    // Fades in once the first frame is drawn, so a new page never pops in with an empty stage.
     r.domElement.style.opacity = "0";
     r.domElement.style.transition = "opacity 600ms cubic-bezier(0.22, 1, 0.36, 1)";
 
@@ -378,7 +347,6 @@ class BoardScene {
     this.scene.add(rim);
 
     this.scene.add(this.pivot);
-    // Case proportions from the official photo: thin side bezels, a little more above and below.
     const W = BOARD_UNITS + 1.2;
     const D = DEPTH + 1.3;
 
@@ -386,9 +354,7 @@ class BoardScene {
     body.position.y = -0.45;
     this.pivot.add(body);
 
-    // The side light: a thin LED band around the case wall, coloured per vertex.
-    // A ring that follows the case's rounded outline (a thin rounded box cannot keep the
-    // corner radius, and its square corners stuck out past the case).
+    // A ring rather than a thin rounded box, whose square corners stuck out past the case.
     const ring = roundedRect(W + 0.03, D + 0.03, 0.46);
     ring.holes.push(roundedRect(W - 0.12, D - 0.12, 0.38));
     const stripGeo = new THREE.ExtrudeGeometry(ring, { depth: 0.07, bevelEnabled: false, curveSegments: 16 });
@@ -399,7 +365,6 @@ class BoardScene {
     this.strip = new THREE.Mesh(stripGeo, new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }));
     this.strip.position.y = -0.5;
     this.pivot.add(this.strip);
-    // Position around the band (0..1) per vertex, for the moving effects.
     const sp = stripGeo.attributes.position;
     this.stripU = new Float32Array(count);
     for (let i = 0; i < count; i++) this.stripU[i] = frac(Math.atan2(sp.getZ(i) / D, sp.getX(i) / W) / (Math.PI * 2) + 0.5);
@@ -425,7 +390,7 @@ class BoardScene {
     }
     this.switches = new THREE.InstancedMesh(switchGeo, switchMat, n);
     this.glows = new THREE.InstancedMesh(
-      new THREE.PlaneGeometry(1, 1.2),
+      new THREE.PlaneGeometry(1, 1 + GAP),
       new THREE.MeshBasicMaterial({ color: 0xffffff, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false }),
       n,
     );
@@ -458,7 +423,7 @@ class BoardScene {
 
     const counts = new Map<number, number>();
     X85_KEYS.forEach((k, slot) => {
-      const p = at(k.x, k.w, k.y);
+      const p = at(k.x, k.w, k.y + (k.dy ?? 0));
       const caps = capMesh.get(k.w)!;
       const i = counts.get(k.w) ?? 0;
       counts.set(k.w, i + 1);
@@ -472,19 +437,24 @@ class BoardScene {
       this.keys.set(k.pos, parts);
       caps.setColorAt(i, parts.base);
       this.placeKey(parts);
-      // The switch under the cap, seen between the rows from a low angle.
       this.switches.setMatrixAt(slot, new THREE.Matrix4().makeTranslation(p.x, 0.12, p.z));
-      // Light spilling up between the caps from the LED under each one.
-      const m = new THREE.Matrix4().compose(new THREE.Vector3(p.x, 0.02, p.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2), new THREE.Vector3(k.w + 0.2, 1, 1));
+      const m = new THREE.Matrix4().compose(new THREE.Vector3(p.x, 0.02, p.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2), new THREE.Vector3(k.w + GAP, 1, 1));
       this.glows.setMatrixAt(slot, m);
       this.glows.setColorAt(slot, new THREE.Color(0, 0, 0));
     });
 
-    // The zig-zag path the snake takes: along each row, alternating direction.
     const path = [...this.keys.values()].sort((a, b) => a.row - b.row || (a.row % 2 ? b.u - a.u : a.u - b.u));
     path.forEach((k, i) => (k.s = i / path.length));
 
-    // Knob: turned aluminium, a fine knurl on the side, a chamfer and a marker line on top.
+    const lightGeo = new THREE.CylinderGeometry(0.026, 0.026, 0.02, 16);
+    const lightMat = new THREE.MeshStandardMaterial({ color: 0xd9dbde, roughness: 0.35 });
+    for (const l of INDICATORS) {
+      const dot = new THREE.Mesh(lightGeo, lightMat);
+      dot.position.copy(at(l.x, 0, l.y)).setY(0.02);
+      dot.position.z -= 0.12;
+      this.pivot.add(dot);
+    }
+
     const profile = [
       [0, 0],
       [0.47, 0],
@@ -514,7 +484,6 @@ class BoardScene {
     this.knob.userData.pos = KNOB_PRESS;
     this.pivot.add(this.knob);
 
-    // Back edge, as on the board: the USB-C port in the middle, two slide switches to the right.
     const dark = new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 0.7 });
     const steel = new THREE.MeshStandardMaterial({ color: 0xb8babd, metalness: 1, roughness: 0.35 });
     const back = -D / 2;
@@ -529,7 +498,6 @@ class BoardScene {
       this.pivot.add(slot, nub);
     }
 
-    // The 2.4G dongle lying behind the board, as in the product photo.
     const dongle = new THREE.Group();
     const dBody = new THREE.Mesh(new RoundedBoxGeometry(0.62, 0.26, 0.5, 4, 0.08), new THREE.MeshStandardMaterial({ color: 0x18191b, roughness: 0.5 }));
     const dPlug = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.16, 0.42), steel);
@@ -539,14 +507,12 @@ class BoardScene {
     dongle.rotation.y = 0.12;
     this.pivot.add(dongle);
 
-    // The TFT: low glossy bezel, live screen, glass.
     const sAt = at(SCREEN_SLOT.x, 1, SCREEN_SLOT.y);
     const bezel = new THREE.Mesh(new RoundedBoxGeometry(1 - GAP, 0.62, 1 - GAP, 4, 0.08), new THREE.MeshStandardMaterial({ color: 0x08090a, roughness: 0.28, metalness: 0.2 }));
     bezel.position.set(sAt.x, 0.31, sAt.z);
     this.pivot.add(bezel);
     this.screenTexture = new THREE.CanvasTexture(screen);
     this.screenTexture.colorSpace = THREE.SRGBColorSpace;
-    // Smoothed, as the tiny panel looks: its pixels are too small to see as blocks.
     this.screenTexture.magFilter = THREE.LinearFilter;
     const display = new THREE.Mesh(new THREE.PlaneGeometry(0.76, 0.76), new THREE.MeshBasicMaterial({ map: this.screenTexture, toneMapped: false }));
     display.rotation.x = -Math.PI / 2;
@@ -560,15 +526,12 @@ class BoardScene {
     glass.position.set(sAt.x, 0.626, sAt.z);
     this.pivot.add(glass);
 
-    // A soft shadow under the board, painted once in the case's own shape and blurred, so it
-    // fades out well inside its texture (no visible edges). Real-time shadow maps cost far
-    // more than the rest of the scene on machines without a fast GPU.
+    // A painted shadow: real-time shadow maps cost more than the whole scene on slow GPUs.
     const SH_W = 512;
     const SH_H = Math.round((SH_W * D) / W);
-    const pad = 72; // room for the blur to fade to nothing
+    const pad = 72;
     const shade = Object.assign(document.createElement("canvas"), { width: SH_W + pad * 2, height: SH_H + pad * 2 });
-    // Alpha from the distance to the case's rounded outline: dark under it, fading to nothing
-    // by the texture's edge (canvas blur filters are not reliable everywhere).
+    // Faded by hand: canvas blur filters are not reliable everywhere.
     const sctx = shade.getContext("2d")!;
     const img = sctx.createImageData(shade.width, shade.height);
     const hx = SH_W / 2 - 14, hy = SH_H / 2 - 14, corner = 40, soft = pad * 0.9;
@@ -586,7 +549,6 @@ class BoardScene {
     const scale = (SH_W + pad * 2) / SH_W;
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(W * scale, D * ((SH_H + pad * 2) / SH_H)), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }));
     floor.rotation.x = -Math.PI / 2;
-    // The key light is up and to the left, so the shadow falls a little right and toward you.
     floor.position.set(0.35, -0.91, 0.45);
     this.pivot.add(floor);
 
@@ -605,7 +567,6 @@ class BoardScene {
     return { target: c.target.clone(), sph: c.sph.clone(), fov: c.fov };
   }
 
-  /** Orbits from the current view to the framing's, easing in and out. */
   setFraming(framing: Framing) {
     if (framing === this.framing && this.from === null) return;
     this.framing = framing;
@@ -627,7 +588,6 @@ class BoardScene {
   }
 
   private inkFor(pos: number, k: KeyParts) {
-    // Edited and selected inks come in a deep shade for the light caps, a bright one for the dark caps.
     if (pos === this.selected) return ROW_SELECTED[k.row];
     if (k.edited) return ROW_EDITED[k.row];
     return k.ink;
@@ -640,7 +600,6 @@ class BoardScene {
     colors.needsUpdate = true;
   }
 
-  /** Writes a key's cap transform and the legend quad printed on it. */
   private placeKey(k: KeyParts) {
     const m = new THREE.Matrix4().compose(new THREE.Vector3(k.x, k.y, k.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), k.tilt), new THREE.Vector3(1, 1, 1));
     k.caps.setMatrixAt(k.index, m);
@@ -659,7 +618,6 @@ class BoardScene {
     nor.needsUpdate = true;
   }
 
-  /** Legends show where keys are edited; elsewhere the board stays clean, as in the product photo. */
   setLegendsVisible(visible: boolean) {
     this.legendTarget = visible ? 1 : 0;
   }
@@ -670,7 +628,30 @@ class BoardScene {
     for (const [p, k] of this.keys) this.inkKey(p, k);
   }
 
-  /** The light settings previewed on the board; animated every frame. */
+  /** A light wave across the keys, played once when the keyboard connects. */
+  wake() {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    this.wakeStart = performance.now();
+    this.dirty = true;
+  }
+
+  private wakePhase(now: number): number | null {
+    if (this.wakeStart === null) return null;
+    const p = (now - this.wakeStart) / 1000 / WAKE_S;
+    if (p >= 1) {
+      this.wakeStart = null;
+      return null;
+    }
+    return -0.2 + 1.4 * p;
+  }
+
+  private wakeColor(u: number, out: THREE.Color) {
+    const l = this.wakeLight;
+    if (l?.rainbow) out.setHSL(u * 0.85, 0.85, 0.55);
+    else if (l && l.mode !== 0) out.setRGB(l.rgb.r / 255, l.rgb.g / 255, l.rgb.b / 255);
+    else out.setRGB(0.9, 0.96, 0.97);
+  }
+
   setLighting(main?: LightSetting, side?: LightSetting) {
     this.light = main;
     this.sideLight = side;
@@ -681,12 +662,17 @@ class BoardScene {
     const l = this.light;
     const effect = l && l.mode !== 0 ? EFFECT_OF[l.mode] ?? "static" : null;
     const cap = new THREE.Color();
+    const wave = this.wakePhase(performance.now());
     for (const k of this.keys.values()) {
-      const amount = l && effect ? lightAt(l, effect, k, t, tmp) : 0;
-      // Additive glow: its colour scaled by the amount is its strength; black is off.
-      // Neighbouring glows overlap and add up, so each stays moderate.
+      let amount = l && effect ? lightAt(l, effect, k, t, tmp) : 0;
+      if (wave !== null) {
+        const w = Math.exp(-(((wave - k.u) / 0.09) ** 2));
+        if (w > amount) {
+          amount = w;
+          this.wakeColor(k.u, tmp);
+        }
+      }
       this.glows.setColorAt(k.slot, cap.copy(tmp).multiplyScalar(amount > 0.001 ? 0.1 + 0.45 * amount : 0));
-      // The cap picks up a faint tint of the light coming through its sides.
       k.caps.setColorAt(k.index, cap.copy(k.base).lerp(tmp, amount > 0.001 ? 0.12 * amount : 0));
     }
     this.glows.instanceColor!.needsUpdate = true;
@@ -721,9 +707,10 @@ class BoardScene {
     this.renderer.domElement.style.height = `${height}px`;
     this.camera.aspect = this.aspect = width / height;
     this.camera.updateProjectionMatrix();
-    // The distance depends on the aspect: refit, and jump there when not moving.
     this.to = this.shot(this.framing);
     if (!this.from) this.cam = this.copyState(this.to);
+    // Resizing clears the canvas; drawing now keeps the next paint from showing it blank.
+    this.renderer.render(this.scene, this.camera);
     this.dirty = true;
   }
 
@@ -738,11 +725,10 @@ class BoardScene {
       prev = now;
       if (this.from) {
         const p = reduce ? 1 : Math.min(1, (now - this.transitionStart) / 1000 / TRANSITION_S);
-        const e = easeInOut(p);
+        const e = easeOut(p);
         const a = this.from;
         const b = this.to;
         this.cam.target.lerpVectors(a.target, b.target, e);
-        // Shortest way round, so the camera never spins the long way.
         let dTheta = b.sph.theta - a.sph.theta;
         dTheta = Math.atan2(Math.sin(dTheta), Math.cos(dTheta));
         this.cam.sph.theta = a.sph.theta + dTheta * e;
@@ -751,7 +737,6 @@ class BoardScene {
         this.cam.fov = a.fov + (b.fov - a.fov) * e;
         if (p >= 1) this.from = null;
       }
-      // The pointer orbits the camera a little around the subject, which stays centred.
       const follow = 1 - Math.exp(-dt * 3.5);
       const pointerMoving = Math.abs(this.pointer.nx - this.pointer.x) + Math.abs(this.pointer.ny - this.pointer.y) > 0.0005;
       this.pointer.x += (this.pointer.nx - this.pointer.x) * follow;
@@ -763,11 +748,9 @@ class BoardScene {
       this.camera.fov = this.cam.fov;
       this.camera.updateProjectionMatrix();
       this.camera.lookAt(this.cam.target);
-      // How wide the TFT is on screen (for dragging the image under the pointer).
       const h = this.renderer.domElement.clientHeight || 1;
       const dist = this.camera.position.distanceTo(SCREEN_TOP);
       this.tftPx = (0.76 / (2 * dist * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)))) * h;
-      // The selected key lifts a little.
       let settling = false;
       for (const [pos, k] of this.keys) {
         const goal = k.rest + (pos === this.selected ? 0.14 : 0);
@@ -790,7 +773,6 @@ class BoardScene {
       }
       this.onFrame?.();
 
-      // Draw only when something moves; otherwise refresh a few times a second for the TFT clock.
       const moving = this.from !== null || pointerMoving || settling || animating || this.dirty;
       if (moving || now - this.lastRender > 120) {
         this.screenTexture.needsUpdate = true;
@@ -809,10 +791,12 @@ class BoardScene {
 
   private lastRender = 0;
   private lightWasOn = false;
+  private wakeStart: number | null = null;
+  wakeLight?: LightSetting;
   private slowFrames = 0;
 
   private lightAnimating() {
-    return (!!this.light && this.light.mode !== 0) || (!!this.sideLight && this.sideLight.mode !== 0);
+    return this.wakeStart !== null || (!!this.light && this.light.mode !== 0) || (!!this.sideLight && this.sideLight.mode !== 0);
   }
 
   /** Drops the resolution when frames take too long, so motion stays smooth on slow machines. */
@@ -826,7 +810,6 @@ class BoardScene {
       this.slowFrames = 0;
     }
   }
-
 
   dispose() {
     cancelAnimationFrame(this.raf);
@@ -851,13 +834,13 @@ export interface Board3DProps {
   face: (pos: number) => KeyFace;
   /** Changes whenever `face` would return something different. */
   faceKey: string;
-  /** Previewed on the board, animated; omit to show it unlit. */
   light?: LightSetting;
   sideLight?: LightSetting;
-  /** Receives the TFT's on-screen width every frame. */
+  /** Plays the wake wave when this turns true, in the colour of `wakeLight`. */
+  ready?: boolean;
+  wakeLight?: LightSetting;
   tftPx?: { current: number };
   selected?: number | null;
-  /** Show key legends (they fade); without them the board looks as in the product photo. */
   legends?: boolean;
   onKey?: (pos: number) => void;
   className?: string;
@@ -937,6 +920,12 @@ export function Board3D(props: Board3DProps) {
   useEffect(() => scene.current?.setSelected(props.selected ?? null), [props.selected]);
   useEffect(() => scene.current?.setLegendsVisible(props.legends ?? true), [props.legends]);
   useEffect(() => scene.current?.setLighting(props.light, props.sideLight), [props.light, props.sideLight]);
+  const wasReady = useRef(props.ready);
+  useEffect(() => {
+    if (scene.current) scene.current.wakeLight = props.wakeLight;
+    if (props.ready && !wasReady.current) scene.current?.wake();
+    wasReady.current = props.ready;
+  }, [props.ready, props.wakeLight]);
 
   return (
     <div ref={host} className={props.className}>

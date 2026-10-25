@@ -44,7 +44,7 @@ O **Dorsal** reimplementa o protocolo do teclado do zero, a partir de engenharia
 
 ### Dorsal Screen
 
-<img src="public/landing/mini.png" alt="Dorsal Screen: a tela do teclado em 3D, o zoom e os botões de enviar" width="300" align="right">
+<img src="public/landing/pt/mini.png" alt="Dorsal Screen: a tela do teclado em 3D, o zoom e os botões de enviar" width="300" align="right">
 
 Só quer trocar a imagem do teclado? O **Dorsal Screen** é uma janela pequena que faz só isso: escolher uma imagem ou um GIF, enquadrar na tela em 3D e enviar. Ele usa o mesmo editor de tela do configurador, mas não lê as outras configurações do teclado, então abre mais rápido.
 
@@ -66,7 +66,7 @@ Os guias estão em inglês:
 | [Dorsal Screen](docs/dorsal-screen.md) | O app pequeno para a tela |
 | [Problemas comuns](docs/troubleshooting.md) | Teclado não encontrado, envio parado, 3D lento |
 
-O protocolo está documentado em [`docs/protocol.md`](docs/protocol.md) (em inglês), com as leituras confirmadas no teclado real.
+O protocolo está documentado em [`docs/protocol.md`](docs/protocol.md) (em inglês), com leituras e gravações confirmadas no teclado real.
 
 **Conteúdos principais:**
 - **Identificação**: IDs USB, interface de configuração e ID do firmware.
@@ -76,12 +76,12 @@ O protocolo está documentado em [`docs/protocol.md`](docs/protocol.md) (em ingl
 
 
 > [!NOTE]
-> Os pixels vão em RGB565 big-endian, coluna por coluna, só dentro do retângulo que contém pixels não pretos. O relógio é um comando à parte (`0x28`). Os detalhes estão em [`docs/protocol.md`](docs/protocol.md#tela-tft-comandos-compartilhados-classe-f6).
+> Os pixels vão em RGB565 big-endian, coluna por coluna, só dentro do retângulo que contém pixels não pretos. O relógio é um comando à parte (`0x28`). Os detalhes estão em [`docs/protocol.md`](docs/protocol.md#tft-screen-shared-commands-class-f6).
 
 <details>
 <summary><strong>Instalação manual (passo a passo)</strong></summary>
 
-1. **Regra de acesso:** copie `udev/70-attack-shark-x85.rules` para `/etc/udev/rules.d/`, recarregue o udev e reconecte o cabo. No Fedora Silverblue o `/etc` é gravável; não precisa de rpm-ostree.
+1. **Regra de acesso:** copie `udev/70-attack-shark-x85.rules` para `/etc/udev/rules.d/`, recarregue o udev e reconecte o cabo.
 2. **Dependências:** `npm install` (Node 22 ou mais novo).
 3. **Site:** `npm run dev` e abra o endereço num navegador com WebHID.
 4. **AppImage:** `npm run appimage`, depois `chmod +x release/Dorsal-0.1.0.AppImage` e abra o arquivo.
@@ -107,17 +107,22 @@ O protocolo está documentado em [`docs/protocol.md`](docs/protocol.md) (em ingl
 ### Limitações Conhecidas
 
 - **Dongle 2.4G:** pelo dongle, as configurações passam por outro canal, ainda não implementado.
-- **Camada Fn:** Fn+Enter, Fn+Backspace e Fn+] têm funções ainda não identificadas; aparecem como "?".
 - **Fora de escopo:** macros e atualização de firmware, pelo risco de inutilizar o teclado.
+
+---
+
+### Contribuindo
+
+Issues, descobertas sobre o protocolo e pull requests são bem-vindos: veja o [`CONTRIBUTING.pt.md`](CONTRIBUTING.pt.md).
 
 ---
 
 ### Aviso
 
-Projeto independente, sem relação com a Attack Shark. Attack Shark e X85 são marcas dos seus donos. Nenhum código proprietário foi copiado: o protocolo foi reimplementado a partir do comportamento observado do teclado e do site oficial. "Dorsal" é um nome provisório; o nome e o logotipo ficam em `src/brand/`.
+Projeto independente, sem relação com a Attack Shark. Attack Shark e X85 são marcas dos seus donos. Nenhum código proprietário foi copiado: o protocolo foi reimplementado a partir do comportamento observado do teclado e do site oficial.
 
 ---
 
 <p align="center">
-  Feito no Fedora Silverblue, para quem tem um X85 Pro e não quer abrir o Windows.
+  Para quem tem um X85 Pro e não quer abrir o Windows.
 </p>

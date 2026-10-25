@@ -86,4 +86,4 @@ Texts are written in place as `tr("Português", "English")` (`src/i18n/index.ts`
 
 ## Desktop shell
 
-`electron/main.cjs` serves `dist/` from `app://x85/`, a privileged scheme that behaves like HTTPS, so WebHID works and the site's routes resolve to `index.html`. It grants HID access only to vendor `0x3151`, prefers the cable, uses the GPU even when Chromium blocklists the driver, and keeps background windows from being throttled. `electron/mini.cjs` opens the same shell on the mini app.
+`electron/main.cjs` serves `dist/` from `app://x85/`, a privileged scheme that behaves like HTTPS, so WebHID works and the site's routes resolve to `index.html`. It grants HID access only to vendor `0x3151`, prefers the cable, and uses the GPU even when Chromium blocklists the driver. Minimised windows are left to Chromium's normal background handling: keeping them "visible" made the compositor wait on frames that are never shown, stalling HID calls. `electron/mini.cjs` opens the same shell on the mini app.

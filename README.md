@@ -44,7 +44,7 @@ The X85 Pro is officially configured through **qmk.top**, a website that talks t
 
 ### Dorsal Screen
 
-<img src="public/landing/mini.png" alt="Dorsal Screen: the keyboard's screen in 3D, the zoom and the send buttons" width="300" align="right">
+<img src="public/landing/en/mini.png" alt="Dorsal Screen: the keyboard's screen in 3D, the zoom and the send buttons" width="300" align="right">
 
 Only want to change the picture on the keyboard? **Dorsal Screen** is a small window that does just that: choose an image or a GIF, frame it on the 3D screen, and send it. It shares the screen editor with the configurator, but skips reading the keyboard's other settings, so it opens faster.
 
@@ -64,7 +64,7 @@ Only want to change the picture on the keyboard? **Dorsal Screen** is a small wi
 | [Dorsal Screen](docs/dorsal-screen.md) | The mini app for the TFT |
 | [Troubleshooting](docs/troubleshooting.md) | Keyboard not found, stalled uploads, slow 3D |
 
-The protocol is documented in [`docs/protocol.md`](docs/protocol.md), with the reads confirmed against the real keyboard.
+The protocol is documented in [`docs/protocol.md`](docs/protocol.md), with reads and writes confirmed on the real keyboard.
 
 **Main topics:**
 - **Identification**: USB IDs, configuration interface and firmware ID.
@@ -74,12 +74,12 @@ The protocol is documented in [`docs/protocol.md`](docs/protocol.md), with the r
 
 
 > [!NOTE]
-> Pixels are sent as big-endian RGB565, column by column, only inside the rectangle that holds non-black pixels. The clock is a separate command (`0x28`). Details in [`docs/protocol.md`](docs/protocol.md#tela-tft-comandos-compartilhados-classe-f6).
+> Pixels are sent as big-endian RGB565, column by column, only inside the rectangle that holds non-black pixels. The clock is a separate command (`0x28`). Details in [`docs/protocol.md`](docs/protocol.md#tft-screen-shared-commands-class-f6).
 
 <details>
 <summary><strong>Manual install (step by step)</strong></summary>
 
-1. **Access rule:** copy `udev/70-attack-shark-x85.rules` to `/etc/udev/rules.d/`, reload udev and replug the cable. On Fedora Silverblue `/etc` is writable; no rpm-ostree needed.
+1. **Access rule:** copy `udev/70-attack-shark-x85.rules` to `/etc/udev/rules.d/`, reload udev and replug the cable.
 2. **Dependencies:** `npm install` (Node 22 or newer).
 3. **Website:** `npm run dev` and open the address in a browser with WebHID.
 4. **AppImage:** `npm run appimage`, then `chmod +x release/Dorsal-0.1.0.AppImage` and open the file.
@@ -105,17 +105,22 @@ The protocol is documented in [`docs/protocol.md`](docs/protocol.md), with the r
 ### Known Limitations
 
 - **2.4G dongle:** over the dongle, settings go through another channel, not implemented yet.
-- **Fn layer:** Fn+Enter, Fn+Backspace and Fn+] have functions not identified yet; they show as "?".
 - **Out of scope:** macros and firmware updates, because of the risk of bricking the keyboard.
+
+---
+
+### Contributing
+
+Issues, protocol findings and pull requests are welcome: see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
 ### Disclaimer
 
-Independent project, not affiliated with Attack Shark. Attack Shark and X85 are trademarks of their owners. No proprietary code was copied: the protocol was reimplemented from the observed behaviour of the keyboard and the official website. "Dorsal" is a working name; the name and logo live in `src/brand/`.
+Independent project, not affiliated with Attack Shark. Attack Shark and X85 are trademarks of their owners. No proprietary code was copied: the protocol was reimplemented from the observed behaviour of the keyboard and the official website.
 
 ---
 
 <p align="center">
-  Made on Fedora Silverblue, for anyone with an X85 Pro who would rather not boot Windows.
+  For anyone with an X85 Pro who would rather not boot Windows.
 </p>

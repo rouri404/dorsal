@@ -17,7 +17,7 @@ export const HID_NAMES: Record<number, string> = {
   0x38: "/", 0x39: "Caps", 0x46: "PrtSc", 0x47: "ScrLk", 0x48: "Pause", 0x49: "Ins", 0x4a: "Home",
   0x4b: "PgUp", 0x4c: "Del", 0x4d: "End", 0x4e: "PgDn", 0x4f: "→", 0x50: "←", 0x51: "↓", 0x52: "↑",
   0x53: "NumLk", 0x54: "KP /", 0x55: "KP *", 0x56: "KP -", 0x57: "KP +", 0x58: "KP Enter", 0x63: "KP .",
-  0x64: "ISO \\", 0x65: "Menu",
+  0x64: "\\ | ABNT2", 0x65: "Menu",
   0xe0: "LCtrl", 0xe1: "LShift", 0xe2: "LAlt", 0xe3: "Super", 0xe4: "RCtrl", 0xe5: "RShift", 0xe6: "RAlt", 0xe7: "RSuper",
 };
 for (let i = 0; i < 26; i++) HID_NAMES[0x04 + i] = String.fromCharCode(65 + i);
@@ -29,11 +29,8 @@ HID_NAMES[0x62] = "KP 0";
 
 const MODIFIER_BITS = ["Ctrl", "Shift", "Alt", "Super", "RCtrl", "RShift", "RAlt", "RSuper"];
 
-/**
- * Named special functions (same 4-byte values the vendor app writes). `short` fits on a
- * keycap; `unsure` marks names inferred from the factory Fn layer, not confirmed by testing.
- */
-export const FUNCTIONS: { label: string; value: KeyValue; short?: string; unsure?: boolean }[] = [
+/** Named special functions (same 4-byte values the vendor app writes). `short` fits on a keycap. */
+export const FUNCTIONS: { label: string; value: KeyValue; short?: string }[] = [
   { label: "Mudo", value: [3, 0, 0xe2, 0] },
   { label: "Volume −", value: [3, 0, 0xea, 0] },
   { label: "Volume +", value: [3, 0, 0xe9, 0] },
@@ -51,18 +48,24 @@ export const FUNCTIONS: { label: string; value: KeyValue; short?: string; unsure
   { label: "Atualizar (navegador)", value: [3, 0, 0x27, 2] },
   { label: "Brilho do monitor −", short: "Monitor −", value: [3, 0, 0x70, 0] },
   { label: "Brilho do monitor +", short: "Monitor +", value: [3, 0, 0x6f, 0] },
-  // Read from the factory Fn layer (Fn+1…4, Fn+\, Fn+arrows, Fn+Super, Fn+Esc).
-  { label: "Bluetooth 1", short: "BT 1", value: [0x0e, 0, 0, 0] },
-  { label: "Bluetooth 2", short: "BT 2", value: [0x0e, 0, 1, 0] },
-  { label: "Bluetooth 3", short: "BT 3", value: [0x0e, 0, 2, 0] },
-  { label: "Receptor 2.4G", short: "2.4G", value: [0x0e, 0, 5, 0] },
+  // From the factory Fn layer; names follow the keyboard's manual.
+  { label: "Bluetooth 1 (segure: parear)", short: "BT 1", value: [0x0e, 0, 0, 0] },
+  { label: "Bluetooth 2 (segure: parear)", short: "BT 2", value: [0x0e, 0, 1, 0] },
+  { label: "Bluetooth 3 (segure: parear)", short: "BT 3", value: [0x0e, 0, 2, 0] },
+  { label: "Receptor 2.4G (segure: parear)", short: "2.4G", value: [0x0e, 0, 5, 0] },
   { label: "Luz: próximo efeito", short: "Efeito", value: [0x0d, 1, 0, 0] },
   { label: "Luz: mais brilho", short: "Luz +", value: [0x0d, 2, 1, 0] },
   { label: "Luz: menos brilho", short: "Luz −", value: [0x0d, 2, 2, 0] },
   { label: "Luz: mais devagar", short: "Vel. −", value: [0x0d, 3, 1, 0] },
   { label: "Luz: mais rápido", short: "Vel. +", value: [0x0d, 3, 2, 0] },
+  { label: "Luz: próxima cor", short: "Cor", value: [0x0d, 5, 1, 0] },
+  { label: "Luz: apagar/acender", short: "Luz", value: [10, 9, 0, 0] },
   { label: "Travar a tecla Super", short: "Trava Super", value: [10, 3, 0, 0] },
-  { label: "Restaurar fábrica (segure)", short: "Reset", value: [10, 2, 0, 0], unsure: true },
+  { label: "Restaurar fábrica (segure 3 s)", short: "Reset", value: [10, 2, 0, 0] },
+  { label: "Ver a bateria (sem fio)", short: "Bateria", value: [10, 8, 0, 0] },
+  { label: "Área de trabalho (Super+D)", short: "Desktop", value: [0, 0, 0xe3, 0x07] },
+  { label: "Alternar janelas (Super+Tab)", short: "Janelas", value: [0, 0, 0xe3, 0x2b] },
+  { label: "Emoji (Super+.)", short: "Emoji", value: [0, 0, 0xe3, 0x37] },
   { label: "Desligar PC", value: [2, 0, 0x81, 0] },
   { label: "Suspender PC", value: [2, 0, 0x82, 0] },
   { label: "Acordar PC", value: [2, 0, 0x83, 0] },
@@ -88,7 +91,6 @@ function modifierPrefix(mask: number): string {
   return parts.length ? parts.join("+") + "+" : "";
 }
 
-/** A label short enough for a keycap. */
 export function keyShortLabel(v: ArrayLike<number>): string {
   const fn = FUNCTIONS.find((f) => sameValue(f.value, v));
   if (fn?.short) return fn.short;
@@ -122,17 +124,20 @@ export function keyLabel(v: ArrayLike<number>): string {
   return `[${Array.from(v).map((x) => x.toString(16).padStart(2, "0")).join(" ")}]`;
 }
 
-/** Plain key with optional modifier mask, as the vendor app's "combo" type. */
 export function keyValue(usage: number, modifiers = 0): KeyValue {
   return [0, modifiers, usage, 0];
 }
 
-/** Keys offered in the remap picker, grouped for the UI. */
+/** Extra search words for keys whose name alone is hard to guess. */
+export const KEY_KEYWORDS: Record<number, string[]> = {
+  0x64: ["ISO", "pipe", "barra invertida", "backslash"],
+};
+
 export const KEY_GROUPS: { title: string; usages: number[] }[] = [
   { title: "Letras", usages: Array.from({ length: 26 }, (_, i) => 0x04 + i) },
   { title: "Números", usages: Array.from({ length: 10 }, (_, i) => 0x1e + i) },
   { title: "F1–F24", usages: [...Array.from({ length: 12 }, (_, i) => 0x3a + i), ...Array.from({ length: 12 }, (_, i) => 0x68 + i)] },
-  { title: "Símbolos", usages: [0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38] },
+  { title: "Símbolos", usages: [0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x64, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38] },
   { title: "Edição", usages: [0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x39, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x65] },
   { title: "Setas", usages: [0x50, 0x52, 0x51, 0x4f] },
   { title: "Modificadores", usages: [0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7] },

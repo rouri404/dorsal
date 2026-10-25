@@ -29,26 +29,10 @@ function seoFiles(site: string): Plugin {
   };
 }
 
-/**
- * udev.sh, the landing page's one-line Linux setup (`curl -fsSL <site>/udev.sh | sudo sh`):
- * written into the build from the site's address (VITE_SITE_URL) and the rule in udev/, and
- * served by the dev server at the same path.
- */
+/** udev.sh, the landing page's one-line Linux setup: udev/install.sh with the site and the rule. */
 function udevScript(site: string): Plugin {
-  const script = () => {
-    const rule = readFileSync(fileURLToPath(new URL("./udev/70-attack-shark-x85.rules", import.meta.url)), "utf8").trim();
-    return `#!/bin/sh
-# Dorsal: lets your user open the Attack Shark X85 Pro without root, by creating one udev rule.
-# Run with: curl -fsSL ${site}/udev.sh | sudo sh
-set -e
-cat > /etc/udev/rules.d/70-attack-shark-x85.rules <<'RULE'
-${rule}
-RULE
-udevadm control --reload
-udevadm trigger --subsystem-match=hidraw
-echo "Done. Unplug and replug the keyboard's USB cable."
-`;
-  };
+  const read = (file: string) => readFileSync(fileURLToPath(new URL(`./udev/${file}`, import.meta.url)), "utf8");
+  const script = () => read("install.sh").replaceAll("@SITE@", site).replace("@RULE@", () => read("70-attack-shark-x85.rules").trim());
   return {
     name: "udev-script",
     configureServer: (server) =>
@@ -63,11 +47,7 @@ echo "Done. Unplug and replug the keyboard's USB cable."
   };
 }
 
-/**
- * In dev and preview, the landing page's download links (/Dorsal-<v>.AppImage,
- * /Dorsal-Screen-<v>.AppImage) serve the AppImages built into release/ and release-mini/,
- * instead of falling back to the site's page. In production they come from VITE_DOWNLOAD_BASE.
- */
+/** In dev and preview, the download links serve the AppImages from release/ and release-mini/. */
 function serveAppImages(): Plugin {
   const handler = (req: IncomingMessage, res: ServerResponse, next: () => void) => {
     const name = /^\/(Dorsal(?:-Screen)?-[\w.]+\.AppImage)$/.exec((req.url ?? "").split("?")[0])?.[1];
@@ -98,7 +78,6 @@ export default defineConfig(({ mode }) => {
   return {
     base: "/",
     plugins: [react(), tailwindcss(), seoFiles(site), udevScript(site), serveAppImages()],
-    // Two pages: the site (landing and configurator, routed in the app) and the mini screen app.
     build: {
       rollupOptions: {
         input: {

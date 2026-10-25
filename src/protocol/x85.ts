@@ -8,7 +8,7 @@ import { sleep } from "../hid/timer";
 import type { KeyValue } from "./keycodes";
 import { buildScreenUpload, type ScreenUpload } from "../screen/packets";
 
-export const CMD = {
+const CMD = {
   RESET: 0x01,
   SET_REPORT_RATE: 0x03,
   SET_PROFILE: 0x04,
@@ -36,8 +36,7 @@ export const CMD = {
 
 export const X85_DEVICE_ID = 3451;
 /** Slots in the column-major key matrix (16 columns x 6 rows on the X85). */
-export const MATRIX_ROWS = 6;
-export const MATRIX_SLOTS = 128;
+const MATRIX_SLOTS = 128;
 
 export const LIGHT_MODES: Record<number, string> = {
   0: "Desligado", 1: "Sempre aceso", 2: "Respiração", 3: "Neon", 4: "Onda", 5: "Ondulação",
@@ -89,8 +88,6 @@ export class X85 {
     this.t = transport;
   }
 
-  // ---------- identity ----------
-
   async identity(): Promise<Identity | undefined> {
     const r = await this.t.query([CMD.GET_IDENTITY]);
     if (!r || r[0] !== CMD.GET_IDENTITY) return undefined;
@@ -104,8 +101,6 @@ export class X85 {
     const chip = String.fromCharCode(...r.slice(13, 19).filter((c) => c >= 0x20 && c < 0x7f));
     return { screenVersion: u16(r, 1), flashVersion: u16(r, 3), chip };
   }
-
-  // ---------- system ----------
 
   async reportRate(): Promise<number | undefined> {
     const r = await this.t.query([CMD.GET_REPORT_RATE]);
@@ -157,8 +152,6 @@ export class X85 {
     return this.t.send([CMD.RESET], { write: true });
   }
 
-  // ---------- lighting ----------
-
   private decodeLight(r: Uint8Array, invertSpeed: boolean): LightSetting {
     const low = r[4] & 15;
     let rgb = { r: r[5], g: r[6], b: r[7] };
@@ -197,9 +190,6 @@ export class X85 {
     return this.t.send(p, { checksum: "bit8", write: true });
   }
 
-  // ---------- keys ----------
-
-  /** Reads the 512-byte matrix (8 pages) and splits it into 4-byte slots. */
   private async readMatrix(page: (n: number) => number[]): Promise<KeyValue[] | undefined> {
     return this.t.batch(async () => {
       const bytes: number[] = [];
@@ -231,8 +221,6 @@ export class X85 {
     return this.t.send([CMD.SET_FN_KEY, os, fnProfile, pos, 0, 0, 0, 0, ...value], { write: true });
   }
 
-  // ---------- screen ----------
-
   async syncClock(date = new Date()): Promise<boolean> {
     const p = new Uint8Array(16);
     p[0] = CMD.SCREEN_CLOCK;
@@ -247,10 +235,7 @@ export class X85 {
     return this.t.send(p, { write: true });
   }
 
-  /**
-   * Uploads a still image (one frame, into `slot`) or an animation (all frames).
-   * The firmware only accepts screen data over the USB cable.
-   */
+  /** A still image goes into `slot`; an animation uploads all frames. Cable only. */
   async writeScreen(upload: ScreenUpload, onProgress?: (fraction: number) => void): Promise<boolean> {
     if (!this.t.isWired) throw new Error("A tela só aceita upload pelo cabo USB.");
     const plan = buildScreenUpload(upload);
@@ -273,4 +258,3 @@ export class X85 {
   }
 }
 
-export const X85_COMMANDS_FOR_TESTS = { LIGHT_MAX_SPEED, LIGHT_NORMAL, LIGHT_DAZZLE };

@@ -20,14 +20,22 @@ const EN: Record<string, string> = {
   "Atualizar (navegador)": "Browser refresh",
   "Brilho do monitor −": "Monitor brightness −",
   "Brilho do monitor +": "Monitor brightness +",
-  "Receptor 2.4G": "2.4G receiver",
+  "Bluetooth 1 (segure: parear)": "Bluetooth 1 (hold: pair)",
+  "Bluetooth 2 (segure: parear)": "Bluetooth 2 (hold: pair)",
+  "Bluetooth 3 (segure: parear)": "Bluetooth 3 (hold: pair)",
+  "Receptor 2.4G (segure: parear)": "2.4G receiver (hold: pair)",
   "Luz: próximo efeito": "Light: next effect",
   "Luz: mais brilho": "Light: brighter",
   "Luz: menos brilho": "Light: dimmer",
   "Luz: mais devagar": "Light: slower",
   "Luz: mais rápido": "Light: faster",
+  "Luz: próxima cor": "Light: next colour",
+  "Luz: apagar/acender": "Light: off/on",
   "Travar a tecla Super": "Lock the Super key",
-  "Restaurar fábrica (segure)": "Factory reset (hold)",
+  "Restaurar fábrica (segure 3 s)": "Factory reset (hold 3 s)",
+  "Ver a bateria (sem fio)": "Check battery (wireless)",
+  "Área de trabalho (Super+D)": "Show desktop (Super+D)",
+  "Alternar janelas (Super+Tab)": "Switch windows (Super+Tab)",
   "Desligar PC": "Power off PC",
   "Suspender PC": "Sleep PC",
   "Acordar PC": "Wake PC",
@@ -45,6 +53,10 @@ const EN: Record<string, string> = {
   "Vel. −": "Speed −",
   "Vel. +": "Speed +",
   "Trava Super": "Super lock",
+  Cor: "Colour",
+  Bateria: "Battery",
+  Janelas: "Windows",
+  Luz: "Light",
   // light effects
   Desligado: "Off",
   "Sempre aceso": "Always on",
@@ -82,7 +94,6 @@ const EN: Record<string, string> = {
   "Teclado numérico": "Numpad",
 };
 
-/** A Portuguese label from the tables, in the given language. */
 export function labelIn(lang: Lang, pt: string): string {
   if (lang === "pt") return pt;
   if (EN[pt]) return EN[pt];

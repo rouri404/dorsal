@@ -13,7 +13,7 @@ describe("X85 physical layout", () => {
     for (const k of X85_KEYS) expect(slot(k.pos).some((b) => b !== 0)).toBe(true);
   });
 
-  it("keeps every row inside 16u without overlaps", () => {
+  it("keeps every row inside the board without overlaps", () => {
     const occupied = [...X85_KEYS, { ...SCREEN_SLOT }, { ...KNOB_SLOT }];
     for (let y = 0; y < 6; y++) {
       const row = occupied.filter((k) => k.y === y).sort((a, b) => a.x - b.x);
@@ -29,15 +29,15 @@ describe("X85 physical layout", () => {
     expect(at(0, 0)).toBe("Esc");
     expect(at(13, 1)).toBe("Backspace");
     expect(at(12.75, 3)).toBe("Enter");
-    expect(at(14, 4)).toBe("↑");
+    expect(at(14.25, 4)).toBe("↑");
     expect(at(3.75, 5)).toBe("Espaço");
-    expect(at(14, 5)).toBe("↓");
+    expect(at(14.25, 5)).toBe("↓");
   });
 
-  it("places the screen directly above the right arrow", () => {
-    const right = X85_KEYS.find((k) => k.y === 5 && k.x === 15)!;
+  it("places the screen in the right column, above the right arrow", () => {
+    const right = X85_KEYS.find((k) => k.y === 5 && k.x === 15.25)!;
     expect(keyLabel(slot(right.pos))).toBe("→");
-    expect(SCREEN_SLOT).toMatchObject({ x: 15, y: 4 });
+    expect(SCREEN_SLOT).toMatchObject({ x: 15.5, y: 4 });
   });
 
   it("maps the knob to mute and volume", () => {

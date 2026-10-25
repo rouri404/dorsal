@@ -3,7 +3,7 @@
 // validates a one-byte checksum placed either at byte 7 or at byte 8.
 
 export const REPORT_ID = 0;
-export const REPORT_SIZE = 64;
+const REPORT_SIZE = 64;
 
 export type Checksum = "bit7" | "bit8";
 

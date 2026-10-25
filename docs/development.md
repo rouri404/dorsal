@@ -10,7 +10,7 @@
 curl -fsSL https://dorsal.cotoo.dev/udev.sh | sudo sh
 ```
 
-The script, generated at build time for `VITE_SITE_URL` (`udevScript` in `vite.config.ts`), writes `udev/70-attack-shark-x85.rules` to `/etc/udev/rules.d/` and reloads udev. From a clone, the same by hand:
+The script, `udev/install.sh` filled in at build time with `VITE_SITE_URL` (`udevScript` in `vite.config.ts`), writes `udev/70-attack-shark-x85.rules` to `/etc/udev/rules.d/` and reloads udev. From a clone, the same by hand:
 
 ```bash
 sudo cp udev/70-attack-shark-x85.rules /etc/udev/rules.d/
@@ -75,5 +75,5 @@ The tests run against answers captured from the keyboard (`tests/fixtures/`):
 
 - **Text**: every visible string goes through `tr("pt", "en")`. Names from the protocol tables go through `labelIn` / `keyName` in `src/i18n/labels.ts`; add the English name there when you add a function or effect.
 - **Components**: UI components come from [beUI](https://beui.dev) through the shadcn CLI (`npx shadcn@latest add @beui/<name>`). Answer *no* when it offers to overwrite files that already exist, and pin new dependencies to exact versions in `package.json`.
-- **Name and logo**: `src/brand/` (the name is a working one).
+- **Name and logo**: `src/brand/`.
 - **Writes to the keyboard**: test them first in demo mode, then with dry run on (developer mode), and only then for real.

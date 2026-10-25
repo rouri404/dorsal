@@ -51,7 +51,7 @@ export function saveLastUpload(frames: RGBAFrame[], delayMs: number): void {
   window.dispatchEvent(new Event(EVENT));
 }
 
-export function readLastUpload(): StoredUpload | null {
+function readLastUpload(): StoredUpload | null {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) return JSON.parse(raw) as StoredUpload;

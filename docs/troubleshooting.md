@@ -14,6 +14,7 @@
 - **The browser has no WebHID.** Firefox and Safari do not support it. Use Chrome, Edge, Chromium or Brave, or the AppImage.
 - **A Flatpak browser cannot see devices.** Give it device access, for example `flatpak override --user --device=all com.brave.Browser`, then restart it.
 - **Only the 2.4G dongle is connected.** The dongle answers no configuration command, so the app only connects through the USB cable. Plug the cable in, even with the dongle still connected.
+- **It runs in a virtual machine.** A USB device stays with the host until you pass it through to the VM (the USB menu in VirtualBox, VMware or virt-manager). While it is passed through, the host stops receiving its keys. Inside the VM, `lsusb | grep 3151` should list `3151:5002`.
 - **Another program holds the keyboard.** Close other configurators or browser tabs connected to it.
 
 ## Images are refused
@@ -24,8 +25,8 @@ The firmware only accepts screen uploads over the **USB cable**. Over the 2.4G d
 
 Uploads run their waits in a worker and hold a Web Lock, so a background tab keeps its pace. If an upload still stalls:
 
-- Use an up-to-date build: older builds paused in hidden tabs.
-- In the AppImages, background throttling is off. If you run the site in a browser with aggressive power saving (a "memory saver" or "energy saver" mode), add the site to its exceptions.
+- Use an up-to-date build: older builds paused in hidden tabs, and older AppImages paused for about a second at a time while minimised.
+- If you run the site in a browser with aggressive power saving (a "memory saver" or "energy saver" mode), add the site to its exceptions.
 
 ## The 3D view is slow
 

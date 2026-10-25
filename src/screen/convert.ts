@@ -39,7 +39,7 @@ export function contentBox(frame: RGBAFrame): Box {
   return { left, top, right, bottom };
 }
 
-export function unionBox(boxes: Box[]): Box {
+function unionBox(boxes: Box[]): Box {
   return {
     left: Math.min(...boxes.map((b) => b.left)),
     top: Math.min(...boxes.map((b) => b.top)),
@@ -48,7 +48,7 @@ export function unionBox(boxes: Box[]): Box {
   };
 }
 
-export function framePixels(frame: RGBAFrame, box: Box, order: "col" | "row" = "col"): Uint8Array {
+function framePixels(frame: RGBAFrame, box: Box, order: "col" | "row" = "col"): Uint8Array {
   const w = box.right - box.left;
   const h = box.bottom - box.top;
   const out = new Uint8Array(w * h * 2);

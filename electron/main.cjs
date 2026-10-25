@@ -1,6 +1,5 @@
-// Electron shell for the AppImages: serves the Vite build from app://x85/ (so the site's
-// routes work as they do on the web) and grants WebHID access to the Attack Shark keyboard
-// (VID 0x3151) only.
+// Electron shell for the AppImages: serves the Vite build from app://x85/ and grants WebHID
+// access to the Attack Shark keyboard (VID 0x3151) only.
 const { app, BrowserWindow, net, protocol, session } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -11,11 +10,6 @@ const DIST = path.join(__dirname, "..", "dist");
 // Chromium turns GPU acceleration off for many Linux drivers; the 3D views then render in
 // software at a few frames per second. Use the GPU anyway.
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
-// A small window behind others (the mini app) must keep its pace: no background timer
-// throttling, no lowering the renderer's priority, no pausing windows it thinks are covered.
-app.commandLine.appendSwitch("disable-background-timer-throttling");
-app.commandLine.appendSwitch("disable-renderer-backgrounding");
-app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
 // app:// behaves like https: a secure origin (WebHID needs one) with fetch and storage.
 protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
@@ -26,7 +20,6 @@ const hidDisabled = process.env.X85_NO_HID === "1";
 // X85_MINI=1 opens the mini screen app (set by electron/mini.cjs in the Dorsal Screen AppImage).
 const mini = process.env.X85_MINI === "1";
 
-/** Files from dist; any other path is a route of the single-page app. */
 function serveDist() {
   protocol.handle("app", (request) => {
     const { pathname } = new URL(request.url);
@@ -59,15 +52,16 @@ function startPath() {
 async function createWindow() {
   const win = new BrowserWindow({
     ...(mini
-      ? // The widget draws its own rounded card on a transparent, frameless window.
-        { width: 440, height: 620, resizable: false, frame: false, transparent: true, backgroundColor: "#00000000", title: "Dorsal Screen" }
+      ? { width: 440, height: 620, resizable: false, frame: false, transparent: true, backgroundColor: "#00000000", title: "Dorsal Screen" }
       : { width: 1280, height: 860, minWidth: 420, backgroundColor: "#0a0b0c", title: "Dorsal" }),
     show: !screenshotPath,
     autoHideMenuBar: true,
     icon: path.join(DIST, "icon.png"),
-    // A minimised or hidden window would otherwise throttle timers and animations: uploads
-    // keep their pace in the background, and captures do not freeze mid-transition.
-    webPreferences: { contextIsolation: true, sandbox: true, backgroundThrottling: false },
+    // A minimised window must count as hidden: kept "visible", Chromium waits on frames the
+    // compositor never shows, and HID calls stall behind them (uploads paused every second).
+    // Uploads keep their pace anyway (their waits run in a worker). Off-screen captures need
+    // throttling off, or they freeze mid-transition.
+    webPreferences: { contextIsolation: true, sandbox: true, backgroundThrottling: !screenshotPath },
   });
   // X85_PREVIEW_UPLOAD=<0..1> shows an upload in progress, for screenshots only (no HID traffic).
   // X85_DEMO=1 opens the demo mode: replays a real keyboard's answers, no hardware needed.

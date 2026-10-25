@@ -2,7 +2,7 @@
 
 Dorsal Screen is a small window that only does one thing: put an image or a GIF on the X85 Pro's 0.85" TFT. It is for when you want to change the picture without opening the full configurator.
 
-<p align="center"><img src="../public/landing/mini.png" alt="Dorsal Screen: the keyboard's screen in 3D, the zoom and the send buttons" width="420"></p>
+<p align="center"><img src="../public/landing/en/mini.png" alt="Dorsal Screen: the keyboard's screen in 3D, the zoom and the send buttons" width="420"></p>
 
 ## Opening it
 

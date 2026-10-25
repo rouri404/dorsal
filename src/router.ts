@@ -46,7 +46,6 @@ interface NavigateOptions {
   keepScroll?: boolean;
 }
 
-/** Goes to a route without reloading. */
 export function navigate(path: string, options: NavigateOptions | boolean = {}) {
   const { replace = false, fade = false, keepScroll = false } = typeof options === "boolean" ? { replace: options } : options;
   const go = () => {

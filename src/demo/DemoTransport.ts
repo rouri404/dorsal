@@ -4,6 +4,7 @@
 
 import type { LogEntry, Transport, XferOptions } from "../hid/transport";
 import { encodePacket, toHex } from "../hid/packet";
+import { sleep } from "../hid/timer";
 import capture from "./x85-capture.json";
 
 const hex = (s: string) => Uint8Array.from(s.match(/../g)!.map((b) => parseInt(b, 16)));
@@ -58,7 +59,7 @@ export class DemoTransport {
   private async exchange(cmd: ArrayLike<number>, opts: XferOptions, read: boolean): Promise<Uint8Array | undefined> {
     const packet = encodePacket(cmd, opts.checksum);
     this.log(opts.write && this.dryRun ? "dry" : "tx", packet);
-    await new Promise((r) => setTimeout(r, opts.sendDelay ?? 4));
+    await sleep(opts.sendDelay ?? 4);
     if (opts.write && !this.dryRun) this.applyWrite(packet);
     if (!read) return packet;
     let reply: Uint8Array | undefined;

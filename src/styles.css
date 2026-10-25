@@ -7,12 +7,7 @@
 /* Theme follows the system via a `.dark` class on <html> (see main.tsx). */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/*
- * App style "framed sheet" (taste-skill, seed 1813211477): a tinted L-shaped frame holds the
- * navigation; the work sits on a white sheet with a 1px edge. Colour lives on data only: the
- * X85 teal marks edited keys, upload progress, the active tab and colour previews.
- * beUI components read the shadcn names below; the app's own tokens follow.
- */
+/* beUI components read the shadcn names below; the app's own tokens follow. */
 :root {
   --frame: #f2f6f7;          /* one low-chroma step of the X85 teal */
   --sheet: #ffffff;
@@ -158,4 +153,51 @@ html {
 }
 section[id] {
   scroll-margin-top: 64px;
+}
+
+/* Connecting: the controls rise into place while the board plays its light wave. */
+@theme {
+  --animate-fade-in: fade-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-dock-in: dock-in 520ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+  --animate-toast-in: toast-in 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-toast-out: toast-out 280ms cubic-bezier(0.4, 0, 1, 1) both;
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(-12px) scale(0.94);
+      filter: blur(6px);
+    }
+  }
+  @keyframes toast-out {
+    to {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.97);
+      filter: blur(3px);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes dock-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-dock-in {
+    animation: none;
+  }
+  .animate-toast-in,
+  .animate-toast-out {
+    animation-name: fade-in;
+    animation-duration: 200ms;
+  }
+  .animate-toast-out {
+    animation-direction: reverse;
+  }
 }

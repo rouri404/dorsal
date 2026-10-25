@@ -1,13 +1,13 @@
-// The configurator: the whole X85 in 3D as the stage, the camera moving to what each
-// section edits, and the section's controls in a dock of dark cards below.
+// The configurator: the board in 3D as the stage, each section's controls in a dock below.
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Cable, Check, Clock, Copy, Crosshair, Download, ImagePlus, Minus, Plus, RotateCcw, ShieldCheck, Timer, Trash2, TriangleAlert, Upload, Usb } from "lucide-react";
 import { describeConnectError, useAction, useDevice, type ConnectError } from "../device";
 import { BackupError, applyRestore, isEmptyPlan, parseBackup, planRestore, readCurrent, type RestorePlan } from "../backup";
 import { FACTORY_BASE, FACTORY_FN_WIN } from "../layout/x85-factory";
 import { X85_KEYS, X85_VIRTUAL } from "../layout/x85";
-import { FUNCTIONS, HID_NAMES, KEY_GROUPS, isEmpty, keyValue, sameValue, type KeyValue } from "../protocol/keycodes";
+import { FUNCTIONS, HID_NAMES, KEY_GROUPS, KEY_KEYWORDS, isEmpty, keyValue, sameValue, type KeyValue } from "../protocol/keycodes";
 import { LIGHT_MODES, REPORT_RATES, SIDE_LIGHT_MODES, type LightSetting, type SleepSetting } from "../protocol/x85";
 import { DEFAULT_VIEW, type Fit } from "../screen/load";
 import { clampDelay } from "../screen/packets";
@@ -41,17 +41,16 @@ const SECTIONS: { id: Section; pt: string; en: string }[] = [
   ...(DEV ? [{ id: "log" as const, pt: "Log", en: "Log" }] : []),
 ];
 const ALL_POSITIONS = [...X85_KEYS.map((k) => k.pos), ...X85_VIRTUAL.map((v) => v.pos)];
-// Colours the LEDs show cleanly; the first is the board's factory white.
+// The first is the board's factory white.
 const PRESETS = ["#fafffa", "#ff2a2a", "#ff8a00", "#ffe100", "#2aff6a", "#00d5ff", "#2a5bff", "#b02aff", "#ff2ad4"];
 const toHex = ({ r, g, b }: LightSetting["rgb"]) => "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
 const fromHex = (hex: string) => ({ r: parseInt(hex.slice(1, 3), 16), g: parseInt(hex.slice(3, 5), 16), b: parseInt(hex.slice(5, 7), 16) });
-// One line: a short script on the site that creates the udev rule (public/udev.sh).
 const UDEV = `curl -fsSL ${SITE}/udev.sh | sudo sh`;
 
 type Layer = "base" | "fn";
 
 export function Configurator({ section }: { section: Section }) {
-  const { kb, identity, snapshot, connect, connecting, error, dryRun, setDryRun } = useDevice();
+  const { kb, identity, snapshot, loading, connect, connecting, error, dryRun, setDryRun } = useDevice();
   const lang = useLang();
   const tr = useTr();
   const job = useUploadJob();
@@ -118,7 +117,7 @@ export function Configurator({ section }: { section: Section }) {
           {DEV && <Switch checked={dryRun} onCheckedChange={setDryRun} label={tr("Simulação", "Dry run")} ariaLabel={tr("Modo simulação", "Dry run")} />}
           <LangSwitch section={section} />
           {kb ? (
-            <span className="num hidden items-center gap-1.5 md:flex">
+            <span className="num hidden animate-fade-in items-center gap-1.5 md:flex">
               <span className={cn("size-1.5 rounded-full", kb.t.isWired ? "bg-positive" : "bg-amber-400")} />
               {kb.t.isWired ? tr("Cabo USB", "USB cable") : "Dongle 2.4G"} · ID {identity?.deviceId}
             </span>
@@ -130,18 +129,14 @@ export function Configurator({ section }: { section: Section }) {
         </div>
       </header>
 
-      {/* The board is wide, so it gets the full width; the section's controls sit in a dock below. */}
       <div className="flex min-h-0 flex-1 flex-col">
-        {/* The stage. Over the TFT, dragging moves the image and the wheel zooms; on Keys a click picks a key. */}
         <div
-          // basis-0 + overflow-hidden: the stage takes the space left by the dock, and the canvas
-          // (absolutely placed) can never push it bigger.
+          // basis-0 + overflow-hidden: the canvas can never push the stage bigger than the dock leaves.
           className="relative h-[46vh] min-h-[300px] shrink-0 touch-none overflow-hidden lg:h-auto lg:min-h-0 lg:flex-1 lg:basis-0"
           style={{ cursor: section === "screen" && ed.source ? "grab" : section === "keys" ? "pointer" : "default" }}
           title={section === "screen" && ed.source ? tr("Arraste para posicionar, role para dar zoom", "Drag to position, scroll to zoom") : undefined}
           {...(section === "screen" ? ed.handlers : {})}
         >
-          {/* A soft studio light behind the board. */}
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_55%_at_50%_48%,#1a1c20,transparent_70%)]" aria-hidden />
           <canvas
             ref={ed.glow}
@@ -155,7 +150,6 @@ export function Configurator({ section }: { section: Section }) {
             screen={ed.screen}
             framing={framing}
             face={(pos) =>
-              // In the Fn layer a key without a shortcut shows its own name, faint.
               layer === "fn" && isEmpty(showMap[pos])
                 ? { label: keyShortName(lang, FACTORY_BASE[pos] ?? [0, 0, 0, 0]), dim: true }
                 : { label: keyShortName(lang, showMap[pos] ?? [0, 0, 0, 0]), edited: edited(pos) }
@@ -163,13 +157,14 @@ export function Configurator({ section }: { section: Section }) {
             faceKey={faceKey}
             light={lighting ? light : undefined}
             sideLight={lighting ? side : undefined}
+            ready={!!kb && !loading}
+            wakeLight={snapshot.light}
             tftPx={tftPx}
             selected={section === "keys" ? selected : null}
             legends={section === "keys" || section === "log"}
             onKey={(pos) => section === "keys" && setSelected(pos)}
             fallback={<p className="grid size-full place-items-center text-sm text-neutral-500">{tr("Este computador não tem WebGL para o teclado em 3D.", "This computer has no WebGL for the 3D keyboard.")}</p>}
           />
-          {/* Over the TFT the rest of the board falls into shadow, like a spotlit product shot; it fades in and out with the camera. */}
           <div
             className={cn(
               "pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_30%_42%_at_50%_50%,transparent_35%,#0a0b0c_100%)] transition-opacity duration-1000",
@@ -179,28 +174,60 @@ export function Configurator({ section }: { section: Section }) {
           />
         </div>
 
-        <section aria-label={tr("Controles", "Controls")} className="shrink-0 border-t border-white/[0.05] px-4 pb-4 pt-3">
-          {kb && error && <ConnectNotice error={error} className="mx-auto mb-3 max-w-[1320px]" />}
-          {dryRun && <p className="mb-2 text-xs text-amber-400">{tr("Modo simulação: nada é gravado no teclado; os pacotes vão para o Log.", "Dry run: nothing is written to the keyboard; packets go to the Log.")}</p>}
-          {section === "log" ? (
-            <LogSection />
-          ) : !kb ? (
-            <ConnectDock />
-          ) : (
-            <>
-              {section === "screen" && <ScreenSection ed={ed} />}
-              {section === "keys" && <KeysSection layer={layer} setLayer={setLayer} selected={selected} setSelected={setSelected} />}
-              {section === "light" && <LightSection main={light} setMain={setLight} side={side} setSide={setSide} />}
-              {section === "system" && <SystemSection />}
-            </>
-          )}
-        </section>
+        <Glide>
+          <section aria-label={tr("Controles", "Controls")} className="border-t border-white/[0.05] px-4 pb-4 pt-3">
+            {kb && error && <ConnectNotice error={error} className="mx-auto mb-3 max-w-[1320px]" />}
+            {dryRun && <p className="mb-2 text-xs text-amber-400">{tr("Modo simulação: nada é gravado no teclado; os pacotes vão para o Log.", "Dry run: nothing is written to the keyboard; packets go to the Log.")}</p>}
+            {section === "log" ? (
+              <LogSection />
+            ) : !kb ? (
+              <div key="off" className="animate-fade-in">
+                <ConnectDock />
+              </div>
+            ) : (
+              <div key="on" className="animate-dock-in">
+                <div key={section} className="animate-fade-in">
+                  {section === "screen" && <ScreenSection ed={ed} />}
+                  {section === "keys" && <KeysSection layer={layer} setLayer={setLayer} selected={selected} setSelected={setSelected} />}
+                  {section === "light" && <LightSection main={light} setMain={setLight} side={side} setSide={setSide} />}
+                  {section === "system" && <SystemSection />}
+                </div>
+              </div>
+            )}
+          </section>
+        </Glide>
       </div>
     </div>
   );
 }
 
-/** PT | EN: the same page in the other language. */
+/** Eases the dock to its new height, so the board above resizes smoothly instead of jumping. */
+function Glide({ children }: { children: ReactNode }) {
+  const inner = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number>();
+  const [moving, setMoving] = useState(false);
+  useLayoutEffect(() => {
+    const el = inner.current!;
+    const ro = new ResizeObserver(() =>
+      setHeight((h) => {
+        if (h !== undefined && h !== el.offsetHeight) setMoving(true);
+        return el.offsetHeight;
+      }),
+    );
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div
+      className={cn("shrink-0 transition-[height] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none", moving && "overflow-hidden")}
+      style={{ height }}
+      onTransitionEnd={(e) => e.target === e.currentTarget && setMoving(false)}
+    >
+      <div ref={inner}>{children}</div>
+    </div>
+  );
+}
+
 function LangSwitch({ section }: { section: Section }) {
   const lang = useLang();
   return (
@@ -220,9 +247,8 @@ function LangSwitch({ section }: { section: Section }) {
   );
 }
 
-/* ---------- building blocks, in the mini app's style ---------- */
+/* ---------- Building blocks ---------- */
 
-/** The dock: the section's cards side by side, stacked on narrow windows. */
 function Dock({ cols, children }: { cols: string; children: ReactNode }) {
   return <div className={cn("mx-auto grid max-w-[1320px] items-stretch gap-3", cols)}>{children}</div>;
 }
@@ -327,6 +353,37 @@ function Status({ status }: { status: { ok: boolean; text: string } | null }) {
   );
 }
 
+/** The same message floating over the page, so it never pushes the layout around. */
+function Toast({ status }: { status: { ok: boolean; text: string } | null }) {
+  const [shown, setShown] = useState(status);
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    setShown(status);
+    setLeaving(false);
+    if (!status) return;
+    const stay = status.ok ? 2600 : 6000;
+    const fade = setTimeout(() => setLeaving(true), stay);
+    const hide = setTimeout(() => setShown(null), stay + 280);
+    return () => {
+      clearTimeout(fade);
+      clearTimeout(hide);
+    };
+  }, [status]);
+  if (!shown) return null;
+  return createPortal(
+    <div
+      role="status"
+      className={cn(
+        "fixed left-1/2 top-20 z-50 -translate-x-1/2 rounded-full border border-white/[0.08] bg-[#17181a]/95 px-4 py-2 shadow-lg shadow-black/40 backdrop-blur",
+        leaving ? "animate-toast-out" : "animate-toast-in",
+      )}
+    >
+      <Status status={shown} />
+    </div>,
+    document.body,
+  );
+}
+
 function IconButton({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick} className="grid size-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-white/5 hover:text-neutral-100 disabled:opacity-40">
@@ -359,8 +416,6 @@ function CopyCommand({ command }: { command: string }) {
 
 /* ---------- Not connected ---------- */
 
-/** Before a keyboard is connected: the three things to do, in order. */
-/** A connection problem, said plainly with what to do: amber for a warning, red for a failure. */
 function ConnectNotice({ error, className }: { error: ConnectError; className?: string }) {
   const lang = useLang();
   const { title, hint } = describeConnectError(error, lang);
@@ -379,7 +434,6 @@ function ConnectDock() {
   const { connect, connecting, error } = useDevice();
   const tr = useTr();
   const inApp = navigator.userAgent.includes("Electron");
-  // Each problem shows in the step that fixes it: the cable in 1, access in 2, the rest in 3.
   const noAccess = error?.kind === "no-access";
   const noCable = error?.kind === "no-cable" || error?.kind === "dongle";
   return (
@@ -595,7 +649,7 @@ function KeysSection(props: { layer: Layer; setLayer: (l: Layer) => void; select
                     <ComboboxGroup key={g.title}>
                       <ComboboxLabel>{labelIn(lang, g.title)}</ComboboxLabel>
                       {g.usages.map((u) => (
-                        <ComboboxItem key={u} value={`k:${u}`}>
+                        <ComboboxItem key={u} value={`k:${u}`} keywords={KEY_KEYWORDS[u]}>
                           {labelIn(lang, HID_NAMES[u] ?? u.toString(16))}
                         </ComboboxItem>
                       ))}
@@ -621,7 +675,7 @@ function KeysSection(props: { layer: Layer; setLayer: (l: Layer) => void; select
             </div>
           </>
         )}
-        <Status status={status} />
+        <Toast status={status} />
       </Card>
       <Card title={tr("Knob e funções sem tecla", "Knob and keyless functions")}>
         <div className="flex flex-col">
@@ -678,7 +732,6 @@ function LightSection(props: { main: LightSetting | undefined; setMain: (l: Ligh
 
   return (
     <>
-      {/* One place to apply; it stays put so nothing jumps when a preview starts. */}
       <div className="mx-auto mb-3 flex max-w-[1320px] flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-data">{dirty ? tr("Prévia, não aplicado", "Preview, not applied") : ""}</p>
         <div className="flex items-center gap-2">
@@ -719,7 +772,6 @@ function LightSection(props: { main: LightSetting | undefined; setMain: (l: Ligh
   );
 }
 
-/** Effects as buttons: all visible at once, one tap to preview. */
 function EffectGrid({ modes, value, onChange, hideOff, cols }: { modes: Record<number, string>; value: number; onChange: (mode: number) => void; hideOff?: boolean; cols: string }) {
   const lang = useLang();
   const entries = Object.entries(modes).filter(([id]) => !(hideOff && id === "0"));
@@ -744,7 +796,6 @@ function EffectGrid({ modes, value, onChange, hideOff, cols }: { modes: Record<n
   );
 }
 
-/** Rainbow, the colours the LEDs show well, and any other colour. */
 function Swatches({ value, onChange, label, small }: { value: LightSetting; onChange: (p: Partial<LightSetting>) => void; label: string; small?: boolean }) {
   const tr = useTr();
   const hex = toHex(value.rgb);
@@ -763,7 +814,6 @@ function Swatches({ value, onChange, label, small }: { value: LightSetting; onCh
         <button key={c} type="button" aria-label={`${tr("Cor", "Colour")} ${c} ${label}`} aria-pressed={!value.rainbow && hex === c} onClick={() => onChange({ rainbow: false, rgb: fromHex(c) })} className={ring(!value.rainbow && hex === c)} style={{ background: c }} />
       ))}
       <ColorPicker alpha={false} value={hex} onValueChange={(h) => onChange({ rainbow: false, rgb: fromHex(h) })}>
-        {/* The trigger's own colour chip is hidden: the swatch is a "+" in a ring, filled when a custom colour is chosen. */}
         <ColorPickerTrigger
           aria-label={`${tr("Outra cor", "Other colour")} ${label}`}
           className={cn(ring(custom), "grid place-items-center border-0 bg-transparent p-0 [&>span:first-child]:hidden")}
@@ -792,8 +842,6 @@ function SystemSection() {
   const [debounce, setDebounce] = useState(snapshot.debounce);
   const [sleep, setSleep] = useState(snapshot.sleep);
   const [resetKey, setResetKey] = useState(0);
-  // Restoring a backup: the file is compared with the keyboard first, and the changes are shown
-  // for confirmation before anything is written.
   const filePicker = useRef<HTMLInputElement>(null);
   const [plan, setPlan] = useState<RestorePlan | null>(null);
   const [checking, setChecking] = useState(false);
@@ -935,7 +983,7 @@ function SystemSection() {
       </Card>
       <Card title="Backup">
         <p className="text-sm text-neutral-400">
-          {tr("Teclas, luz e ajustes num arquivo.", "Keys, lights and settings in one file.")}
+          {tr("Teclas, luz e ajustes num arquivo. O conteúdo das macros fica de fora.", "Keys, lights and settings in one file. Macro contents are not included.")}
         </p>
         <p className="num text-xs text-neutral-500">
           {tr("Firmware", "Firmware")} {identity?.deviceId ?? "—"} · {tr("tela", "screen")} {snapshot.screen ? `${SCREEN_W} × ${SCREEN_H}` : "—"}
@@ -1011,11 +1059,7 @@ function SystemSection() {
           </HoldActionButton>
         </div>
       </Card>
-      {status && (
-        <div className="md:col-span-2 xl:col-span-4">
-          <Status status={status} />
-        </div>
-      )}
+      <Toast status={status} />
     </Dock>
   );
 }

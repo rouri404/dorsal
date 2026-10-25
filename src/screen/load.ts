@@ -8,7 +8,6 @@ import type { RGBAFrame } from "./convert";
 export type Fit = "contain" | "cover" | "stretch";
 
 export interface ImageSource {
-  /** Full-size frames (one for still images). */
   frames: HTMLCanvasElement[];
   width: number;
   height: number;
@@ -36,7 +35,6 @@ function makeCanvas(w: number, h: number) {
   return { c, ctx };
 }
 
-/** Destination rectangle of the source on a dw×dh screen for the given view. */
 export function viewRect(sw: number, sh: number, dw: number, dh: number, view: View) {
   let w: number, h: number;
   if (view.fit === "stretch") {
@@ -121,15 +119,4 @@ async function loadGif(file: File, maxFrames: number): Promise<ImageSource> {
 export function loadImageSource(file: File, maxFrames: number): Promise<ImageSource> {
   const isGif = file.type === "image/gif" || file.name.toLowerCase().endsWith(".gif");
   return isGif ? loadGif(file, maxFrames) : loadStill(file);
-}
-
-/** Paints an RGBA frame onto a canvas (displayed with nearest-neighbour scaling). */
-export function paintFrame(canvas: HTMLCanvasElement, frame: RGBAFrame): void {
-  canvas.width = frame.width;
-  canvas.height = frame.height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  const img = ctx.createImageData(frame.width, frame.height);
-  img.data.set(frame.data);
-  ctx.putImageData(img, 0, 0);
 }

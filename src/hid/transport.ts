@@ -9,7 +9,7 @@ export const PRODUCT_DONGLE = 0x5006;
  * Only the cable's configuration collection. The 2.4G dongle exposes the same collection but
  * answers every configuration command with zeros, so it is never offered.
  */
-export const HID_FILTERS: HIDDeviceFilter[] = [{ vendorId: VENDOR_ID, productId: PRODUCT_WIRED, usagePage: 0xffff, usage: 2 }];
+const HID_FILTERS: HIDDeviceFilter[] = [{ vendorId: VENDOR_ID, productId: PRODUCT_WIRED, usagePage: 0xffff, usage: 2 }];
 
 export interface LogEntry {
   time: number;
@@ -26,7 +26,6 @@ export interface XferOptions {
   /** Changes device state: suppressed in dry-run mode. */
   write?: boolean;
 }
-
 
 function isConfigCollection(d: HIDDevice): boolean {
   return d.collections.some((c) => c.usagePage === 0xffff && c.usage === 2);
@@ -51,7 +50,6 @@ export class Transport {
     return typeof navigator !== "undefined" && "hid" in navigator;
   }
 
-  /** Devices this origin was already granted (no prompt). */
   static async granted(): Promise<HIDDevice[]> {
     const all = await navigator.hid.getDevices();
     return all.filter((d) => d.vendorId === VENDOR_ID && isConfigCollection(d));
@@ -122,12 +120,10 @@ export class Transport {
     }
   }
 
-  /** Sends one command without reading a reply. */
   send(cmd: ArrayLike<number>, opts: XferOptions = {}): Promise<boolean> {
     return this.exclusive(() => this.rawSend(encodePacket(cmd, opts.checksum), opts));
   }
 
-  /** Sends one command and returns the 64-byte reply (undefined on failure or dry-run writes). */
   query(cmd: ArrayLike<number>, opts: XferOptions = {}): Promise<Uint8Array | undefined> {
     return this.exclusive(async () => {
       const packet = encodePacket(cmd, opts.checksum);
@@ -137,12 +133,11 @@ export class Transport {
     });
   }
 
-  /** Runs several exchanges back to back without other traffic in between (and keeps a background tab awake meanwhile). */
+  /** Exchanges with no other traffic in between, keeping a background tab awake meanwhile. */
   batch<T>(fn: () => Promise<T>): Promise<T> {
     return this.exclusive(() => keepAwake(fn));
   }
 
-  /** Raw building blocks for use inside batch(). */
   async sendInBatch(cmd: ArrayLike<number>, opts: XferOptions = {}): Promise<boolean> {
     return this.rawSend(encodePacket(cmd, opts.checksum), opts);
   }

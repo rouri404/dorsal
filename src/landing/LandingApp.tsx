@@ -1,8 +1,8 @@
 // Landing page: what the configurator does, shown with the app's own 3D board running in
 // demo mode, how to use it in the browser and how to install it on Linux.
 
-import { useEffect, useState, type ReactNode } from "react";
-import { ArchiveRestore, BadgeInfo, Check, Copy, Download, Globe, Languages, Laptop, MessageCircleQuestion, PackageOpen, ShieldCheck, Terminal as TerminalIcon, Usb } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ArchiveRestore, BadgeInfo, Check, ChevronDown, Copy, Download, Globe, Languages, Laptop, MessageCircleQuestion, PackageOpen, ShieldCheck, Terminal as TerminalIcon, Usb } from "lucide-react";
 import { Board3D, type Framing } from "../app/Board3D";
 import { FACTORY_BASE } from "../layout/x85-factory";
 import { drawClockFace } from "../screen/clockFace";
@@ -11,9 +11,9 @@ import type { LightSetting } from "../protocol/x85";
 import { useLang, useTr, type Lang } from "../i18n";
 import { keyShortName } from "../i18n/labels";
 import { navigate, pathOf } from "../router";
-import { Logo, PRODUCT, REPO, SITE } from "../brand";
+import { GitHubMark, Logo, PRODUCT, REPO, SITE } from "../brand";
 import { cn } from "@/lib/utils";
-import { ButtonLink } from "@/components/motion/button/base";
+import { Button, ButtonLink } from "@/components/motion/button/base";
 import { Tabs, TabsList, TabsTrigger } from "@/components/motion/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/motion/card";
 import { BouncyAccordion } from "@/components/motion/bouncy-accordion";
@@ -23,8 +23,7 @@ import { SharedLayoutBg } from "@/components/motion/shared-layout-bg";
 import { ScrollReveal } from "@/components/motion/scroll-reveal";
 
 const VERSION = "0.1.0";
-// Where the AppImages are downloaded from: the site's root by default, or another host
-// (a release page, a CDN) set in VITE_DOWNLOAD_BASE at build time.
+// The site's root by default, or a release page set in VITE_DOWNLOAD_BASE.
 const DOWNLOAD_BASE = (import.meta.env.VITE_DOWNLOAD_BASE ?? "").replace(/\/$/, "");
 const APPIMAGE_FILE = `Dorsal-${VERSION}.AppImage`;
 const MINI_FILE = `Dorsal-Screen-${VERSION}.AppImage`;
@@ -37,11 +36,9 @@ const VIEWS: { id: Framing; pt: string; en: string; capPt: string; capEn: string
   { id: "light", pt: "Iluminação", en: "Lighting", capPt: "Os efeitos animam no 3D antes de ir para o teclado.", capEn: "Effects play in 3D before they reach the keyboard." },
   { id: "system", pt: "Sistema", en: "System", capPt: "Polling, debounce, bateria e reset de fábrica.", capEn: "Polling, debounce, battery and factory reset." },
 ];
-// A rainbow wave on the keys and the side band, to show the lighting preview.
 const DEMO_LIGHT: LightSetting = { mode: 4, speed: 2, brightness: 3, rainbow: true, rgb: { r: 250, g: 255, b: 250 } };
 const DEMO_SIDE: LightSetting = { mode: 4, speed: 2, brightness: 4, rainbow: true, rgb: { r: 250, g: 255, b: 250 } };
 
-/** The configurator in the browser (WebHID), in the page's language. */
 const appPath = (lang: Lang) => pathOf({ lang, page: "app", section: "screen" });
 const go = (path: string) => (e: React.MouseEvent) => {
   e.preventDefault();
@@ -67,7 +64,12 @@ export function LandingApp() {
         <span className="flex items-center gap-2">
           <Logo className="size-5" /> {PRODUCT}
         </span>
-        <span>{tr("Projeto independente, sem relação com a Attack Shark.", "Independent project, not affiliated with Attack Shark.")}</span>
+        <span className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <span>{tr("Projeto independente, sem relação com a Attack Shark.", "Independent project, not affiliated with Attack Shark.")}</span>
+          <a href={`${REPO}#readme`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-neutral-400 transition-colors hover:text-white">
+            <GitHubMark className="size-4" />
+          </a>
+        </span>
       </footer>
     </div>
   );
@@ -115,7 +117,6 @@ function Header() {
           <Logo className="size-7" /> {PRODUCT}
         </a>
         <nav className="hidden text-sm md:block" aria-label={tr("Seções", "Sections")}>
-          {/* beUI: a pill glides behind the link under the pointer; the section in view is lit. */}
           <SharedLayoutBg className="w-auto flex-row items-center gap-1" inset={0} pillClassName="rounded-lg bg-white/[0.07]">
             {NAV.map((n) => (
               <a key={n.id} href={`#${n.id}`} aria-current={active === n.id ? "true" : undefined} className={cn("block rounded-lg px-3 py-1.5 transition-colors", active === n.id ? "text-white" : "text-neutral-400 hover:text-white")}>
@@ -125,6 +126,9 @@ function Header() {
           </SharedLayoutBg>
         </nav>
         <div className="flex items-center gap-3">
+          <a href={`${REPO}#readme`} target="_blank" rel="noreferrer" aria-label={tr("Código no GitHub", "Source on GitHub")} title="GitHub" className="grid size-8 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-white/[0.06] hover:text-white">
+            <GitHubMark className="size-[18px]" />
+          </a>
           <span className="flex items-center rounded-lg bg-white/[0.05] p-0.5" role="group" aria-label="Idioma / Language">
             {(["pt", "en"] as Lang[]).map((l) => {
               const to = pathOf({ lang: l, page: "landing", section: "screen" });
@@ -177,7 +181,6 @@ function Hero() {
   return (
     <section className="relative overflow-hidden">
       <div className="mx-auto max-w-[1180px] px-5 pt-12 text-center sm:pt-14">
-        {/* The page's one orchestrated moment: the headline arrives word by word. */}
         <TextReveal
           as="h1"
           text={tr("O seu X85 Pro, configurado no Linux.", "Your X85 Pro, configured on Linux.")}
@@ -194,14 +197,10 @@ function Hero() {
           <ButtonLink href={appPath(lang)} onClick={go(appPath(lang))} variant="primary" size="lg">
             <Globe className="size-4" /> {tr("Usar no navegador", "Use it in the browser")}
           </ButtonLink>
-          <ButtonLink href={APPIMAGE} download={APPIMAGE_FILE} variant="outline" size="lg">
-            <Download className="size-4" /> {tr("Baixar o AppImage", "Download the AppImage")}
-          </ButtonLink>
+          <DownloadMenu />
         </div>
       </div>
 
-      {/* Linear fades on all four edges reach full transparency, so the board's soft shadow
-          never ends on the stage's edge; the two masks intersect. */}
       <div className="relative h-[min(58vh,620px)] min-h-[320px] [mask-composite:intersect] [mask-image:linear-gradient(to_bottom,transparent,#000_8%,#000_74%,transparent),linear-gradient(to_right,transparent,#000_10%,#000_90%,transparent)]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_55%_55%_at_50%_50%,#1a1c20,transparent_70%)]" aria-hidden />
         <Board3D
@@ -215,7 +214,6 @@ function Hero() {
           sideLight={view === "light" ? DEMO_SIDE : undefined}
           fallback={<img src={shot(lang, "keys.png")} alt={tr("O configurador mostrando o teclado de cima", "The configurator showing the keyboard from above")} className="mx-auto h-full object-contain" />}
         />
-        {/* As in the app: over the TFT the rest of the board falls into shadow. */}
         <div
           className={cn(
             "pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_26%_40%_at_50%_50%,transparent_35%,#0a0b0c_100%)] transition-opacity duration-1000",
@@ -248,7 +246,6 @@ function Hero() {
   );
 }
 
-/** Captures of the app in the page's language: public/landing/pt and public/landing/en. */
 const shot = (lang: Lang, file: string) => `/landing/${lang}/${file}`;
 
 const FEATURES = [
@@ -309,6 +306,62 @@ const FEATURES = [
   },
 ] as const;
 
+function DownloadMenu() {
+  const tr = useTr();
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const outside = (e: PointerEvent) => !root.current?.contains(e.target as Node) && setOpen(false);
+    const escape = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+  const choices = [
+    { href: APPIMAGE, file: APPIMAGE_FILE, title: PRODUCT, text: tr("O app completo: tela, teclas, iluminação e sistema.", "The full app: screen, keys, lighting and system.") },
+    { href: MINI_APPIMAGE, file: MINI_FILE, title: "Dorsal Screen", text: tr("Só a tela do teclado, numa janela pequena.", "Just the keyboard's screen, in a small window.") },
+  ];
+  return (
+    <div ref={root} className="relative z-20">
+      <Button variant="outline" size="lg" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <Download className="size-4" /> {tr("Baixar o AppImage", "Download the AppImage")}
+        <ChevronDown className={cn("size-4 transition-transform duration-300", open && "rotate-180")} />
+      </Button>
+      <div
+        role="menu"
+        inert={!open}
+        className={cn(
+          "absolute left-1/2 top-full mt-2 flex w-[300px] -translate-x-1/2 origin-top flex-col rounded-2xl border border-white/[0.08] bg-[#121315] p-1.5 text-left shadow-xl shadow-black/50",
+          "transition-[opacity,translate,scale,filter] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-opacity",
+          open ? "opacity-100" : "pointer-events-none -translate-y-1.5 scale-[0.97] opacity-0 blur-[2px]",
+        )}
+      >
+        {choices.map((c) => (
+          <a
+            key={c.file}
+            role="menuitem"
+            href={c.href}
+            download={c.file}
+            onClick={() => setOpen(false)}
+            className="group flex items-start gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/[0.06] focus-visible:bg-white/[0.06] focus-visible:outline-none"
+          >
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="font-medium text-neutral-100">{c.title}</span>
+              <span className="text-sm text-neutral-400">{c.text}</span>
+              <span className="num mt-1 truncate text-xs text-neutral-500">{c.file}</span>
+            </span>
+            <Download className="mt-1 size-4 shrink-0 text-neutral-500 transition-colors group-hover:text-neutral-100" />
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Features() {
   const lang = useLang();
   const i = lang === "en" ? 1 : 0;
@@ -364,7 +417,6 @@ function Mini() {
   );
 }
 
-/** The one command that gives Linux access to the keyboard: a short script on the site. */
 const UDEV_SCRIPT = `${SITE}/udev.sh`;
 const UDEV_COMMAND = `curl -fsSL ${UDEV_SCRIPT} | sudo sh`;
 
@@ -463,13 +515,11 @@ function Step({ n, title, delay, children }: { n: number; title: string; delay: 
   );
 }
 
-/** One command to paste in a terminal, with its copy button. */
 function Terminal({ command }: { command: string }) {
   const tr = useTr();
   const [state, setState] = useState("copy");
   return (
     <div className="flex min-w-0 items-center gap-2 rounded-xl bg-black/50 py-1.5 pl-4 pr-1.5 ring-1 ring-white/[0.06]">
-      {/* Wraps instead of scrolling, so the whole command is always in view. */}
       <code className="min-w-0 flex-1 whitespace-pre-wrap py-1 font-mono [overflow-wrap:anywhere] text-[13px] leading-6 text-neutral-100">
         <span className="select-none text-[#5fd0e6]">$ </span>
         {command}
@@ -493,7 +543,6 @@ function Terminal({ command }: { command: string }) {
   );
 }
 
-/** A question: its icon, and the question and answer in Portuguese and English. */
 interface Question {
   icon: ReactNode;
   q: [string, string];
@@ -584,7 +633,6 @@ function Questions() {
   const i = lang === "en" ? 1 : 0;
   return (
     <section id="questions" className="border-t border-white/[0.05]">
-      {/* Heading, questions, then the GitHub card; on wide screens the card sits under the heading. */}
       <div className="mx-auto grid max-w-[1180px] gap-10 px-5 py-20 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] lg:grid-rows-[auto_1fr] lg:gap-y-8">
         <ScrollReveal>
           <h2 className="text-[32px] font-semibold leading-[1.1] tracking-[-0.025em] sm:text-[40px]">{tr("Perguntas.", "Questions.")}</h2>

@@ -1,7 +1,7 @@
 # Attack Shark X85 Pro protocol
 
 Reverse engineered for interoperability from the qmk.top / gearhub.top web bundle
-(`js/index.DBxGlqV7.js`) and confirmed with reads on the real keyboard. The code in this repository
+(`js/index.DBxGlqV7.js`) and confirmed on the real keyboard. The code in this repository
 is an independent reimplementation: none of the proprietary code was copied.
 
 ## Identification
@@ -52,8 +52,9 @@ Commands the firmware does not implement come back as an **echo** of the packet 
 Write a key: `[0x0A, profile, pos, 0, 0, 1, layer, chk, v0, v1, v2, v3]`.
 Write a key on the Fn layer: `[0x10, os, fnProfile, pos, 0, 0, 0, chk, v0..v3]`.
 
-The reads are confirmed on the keyboard; the writes follow the bundle and have not all been tested
-on the hardware yet.
+Every command above is confirmed on the keyboard. Each write (`0x03`, `0x06`, `0x07`, `0x08`,
+`0x0A`, `0x10`, `0x11`) was read back with the matching command and then undone. The light and a
+remapped key were also checked by eye and by typing. Factory reset (`0x01`) has not been run.
 
 ### Matrix
 
@@ -68,7 +69,30 @@ The X85 uses 16 columns. Values:
 | 3 | consumer `[3, 0, lo, hi]` |
 | 9 | macro `[9, mode, index, 0]` |
 | 10 | Fn / locks |
+| 13 | lighting control |
+| 14 | connection (Bluetooth 1–3, 2.4G) |
 | 19 | screen functions (the knob column) |
+
+Functions found in the factory Fn layer, named after the keyboard's manual (Fn+Enter and Fn+] are
+not in it and were checked by pressing them):
+
+| Value | Factory key | Effect |
+|---|---|---|
+| `[13, 1, 0, 0]` | Fn+\ | next light effect |
+| `[13, 2, 1/2, 0]` | Fn+↑ / Fn+↓ | brightness up / down |
+| `[13, 3, 1/2, 0]` | Fn+← / Fn+→ | speed down / up |
+| `[13, 5, 1, 0]` | Fn+Enter | next light colour |
+| `[10, 9, 0, 0]` | Fn+] | turns the key light off |
+| `[10, 3, 0, 0]` | Fn+Super | locks the Super key |
+| `[10, 8, 0, 0]` | Fn+Backspace | shows the battery level (wireless only) |
+| `[10, 2, 0, 0]` | Fn+Esc | factory reset, held for 3 s |
+| `[14, 0, n, 0]` | Fn+1…4 | Bluetooth 1–3 (`n` 0–2), 2.4G (`n` 5); held, pairs |
+| `[3, 0, 0x70/0x6F, 0]` | Fn+F1 / Fn+F2 | monitor brightness down / up |
+| `[0, 0, 0xE3, 0x07]` | Fn+F3 | Super+D (show desktop) |
+| `[0, 0, 0xE3, 0x2B]` | Fn+F4 | Super+Tab (switch windows) |
+| `[0, 0, 0xE3, 0x37]` | Fn+F5 | Super+. (emoji) |
+| `[0, 0, 0x46, 0]` | Fn+F6 | Print Screen |
+| `[3, 0, …]` | Fn+F7…F12 | previous, play/pause, next, mute, volume −, volume + |
 
 ## TFT screen (shared commands, class `F6`)
 

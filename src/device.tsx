@@ -5,7 +5,6 @@ import type { KeyValue } from "./protocol/keycodes";
 import { DemoTransport, isDemo } from "./demo/DemoTransport";
 import { useLang } from "./i18n";
 
-/** Everything readable from the keyboard, fetched once on connect and kept in sync after writes. */
 export interface Snapshot {
   screen?: ScreenInfo;
   profile?: number;
@@ -38,7 +37,6 @@ interface DeviceState {
   kb: X85 | null;
   identity: Identity | null;
   snapshot: Snapshot;
-  /** True until the first full read after connecting finishes. */
   loading: boolean;
   connecting: boolean;
   error: ConnectError | null;
@@ -46,9 +44,7 @@ interface DeviceState {
   log: LogEntry[];
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
-  /** Re-reads some (or all) parts from the keyboard. */
   refresh: (...keys: SnapshotKey[]) => Promise<void>;
-  /** Updates the cache after a successful write, without another read. */
   patch: (p: Partial<Snapshot>) => void;
   setDryRun: (v: boolean) => void;
   clearLog: () => void;
@@ -64,14 +60,13 @@ export type ConnectError =
   | { kind: "not-x85"; deviceId: number }
   | { kind: "other"; detail: string };
 
-/** What to tell the person about a connection error, and what to do about it. */
 export function describeConnectError(e: ConnectError, lang: "pt" | "en"): { title: string; hint: string } {
   const en = lang === "en";
   switch (e.kind) {
     case "no-cable":
       return en
-        ? { title: "The X85 Pro is not plugged in by cable.", hint: "Plug in the USB cable and connect again." }
-        : { title: "O X85 Pro não está ligado pelo cabo.", hint: "Ligue o cabo USB e conecte de novo." };
+        ? { title: "No X85 Pro found on the USB cable.", hint: "Plug in the cable and connect again. In a virtual machine, pass the keyboard through to it from the USB menu." }
+        : { title: "Nenhum X85 Pro encontrado no cabo USB.", hint: "Ligue o cabo e conecte de novo. Numa máquina virtual, repasse o teclado para ela no menu USB." };
     case "dongle":
       return en
         ? { title: "Only the 2.4G dongle is connected.", hint: "The keyboard takes no settings over the dongle. Plug in the USB cable and connect again." }
@@ -97,7 +92,6 @@ export function describeConnectError(e: ConnectError, lang: "pt" | "en"): { titl
   }
 }
 
-/** Opening a hidraw device without permission fails with these. */
 const isAccessError = (e: unknown) => e instanceof DOMException && (e.name === "NotAllowedError" || e.name === "SecurityError" || /failed to open/i.test(e.message));
 
 class ConnectFailure extends Error {
@@ -128,7 +122,6 @@ export function DeviceProvider({ children, parts = Object.keys(READERS) as Snaps
   const readParts = useCallback(async (k: X85, keys: SnapshotKey[]) => {
     for (const key of keys) {
       const value = await READERS[key](k);
-      // Publish each part as soon as it arrives so the UI fills in progressively.
       setSnapshot((s) => ({ ...s, [key]: value }));
     }
   }, []);
@@ -164,20 +157,19 @@ export function DeviceProvider({ children, parts = Object.keys(READERS) as Snaps
     [readParts],
   );
 
-  // One connection attempt at a time. Plugging the cable in fires a "connect" event per USB
-  // interface, the Connect button can be pressed during a silent reconnect, and opening a
-  // device that is already being opened fails ("An operation that changes the device state is
-  // in progress"): later callers wait for the attempt in progress instead.
+  // One attempt at a time: plugging the cable in fires "connect" once per USB interface, and
+  // opening a device that is already opening fails ("An operation that changes the device state
+  // is in progress").
   const attaching = useRef<Promise<void> | null>(null);
   const attach = useCallback(
     (devices: HIDDevice[]) => {
       if (attaching.current) return attaching.current;
       const attempt = (async () => {
-        // Only the cable: the dongle answers no configuration command (it replies with zeros).
+        // The dongle answers every configuration command with zeros.
         const cable = devices.find((d) => d.productId === PRODUCT_WIRED);
         if (cable) await attachTransport(new Transport(cable));
         else if (devices.some((d) => d.productId === PRODUCT_DONGLE)) throw new ConnectFailure({ kind: "dongle" });
-        // The AppImages pick the device themselves: nothing picked means no cable is plugged in.
+        // The AppImages pick the device themselves, so nothing picked means no cable.
         else if (navigator.userAgent.includes("Electron")) throw new ConnectFailure({ kind: "no-cable" });
       })().finally(() => {
         attaching.current = null;
@@ -224,15 +216,13 @@ export function DeviceProvider({ children, parts = Object.keys(READERS) as Snaps
 
   const patch = useCallback((p: Partial<Snapshot>) => setSnapshot((s) => ({ ...s, ...p })), []);
 
-  // Reconnect silently to a keyboard this origin was granted before.
   useEffect(() => {
     if (isDemo()) {
       void attachTransport(new DemoTransport().asTransport());
       return;
     }
     if (!Transport.supported()) return;
-    // Reconnects to a keyboard granted before; a device appearing while one is connected
-    // (the dongle waking up, say) must not reset the connection in use.
+    // A device appearing while one is connected (the dongle waking up) must not reset it.
     const tryGranted = () => {
       if (kbRef.current) return;
       Transport.granted()
@@ -280,7 +270,6 @@ export function useDevice(): DeviceState {
   return v;
 }
 
-/** Runs a keyboard action and reports the outcome as a short status line. */
 export function useAction() {
   const lang = useLang();
   const [busy, setBusy] = useState(false);

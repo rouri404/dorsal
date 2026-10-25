@@ -12,7 +12,7 @@ import type { Box } from "./convert";
 export const SCREEN_BEGIN = 0xa5;
 export const SCREEN_DATA = 0x25;
 export const CHUNK = 56;
-export const MAX_DELAY_MS = 255;
+const MAX_DELAY_MS = 255;
 
 export interface ScreenUpload {
   box: Box;
