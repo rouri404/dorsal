@@ -56,7 +56,7 @@ export function Configurator({ section }: { section: Section }) {
   const job = useUploadJob();
   const go = (id: Section) => navigate(pathOf({ lang, page: "app", section: id }), true);
   const tftPx = useRef(150);
-  const ed = useScreenEditor(() => tftPx.current);
+  const ed = useScreenEditor(() => tftPx.current, () => section !== "screen" && go("screen"));
   const [layer, setLayer] = useState<Layer>("base");
   const [selected, setSelected] = useState<number | null>(null);
   // Light drafts live here so the board can preview them before they are applied.
@@ -75,8 +75,13 @@ export function Configurator({ section }: { section: Section }) {
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [section, selected]);
+  const uploadPct = job.status === "uploading" ? Math.round(job.progress * 100) : null;
   useEffect(() => {
-    document.title = `${PRODUCT} · ${tr(SECTIONS.find((s) => s.id === section)?.pt ?? "", SECTIONS.find((s) => s.id === section)?.en ?? "")}`;
+    // While the screen uploads, the tab shows how far it got, even with another tab in front.
+    document.title =
+      uploadPct !== null
+        ? `${uploadPct}% · ${tr("Enviando para a tela", "Sending to the screen")}`
+        : `${PRODUCT} · ${tr(SECTIONS.find((s) => s.id === section)?.pt ?? "", SECTIONS.find((s) => s.id === section)?.en ?? "")}`;
   });
 
   const framing: Framing = section === "log" ? "keys" : section;
@@ -86,7 +91,6 @@ export function Configurator({ section }: { section: Section }) {
   const edited = (pos: number) => map !== null && !sameValue(factory[pos], map[pos]);
   const faceKey = `${lang}:${layer}:${map ? map.map((v) => v.join(",")).join(";") : "factory"}`;
   const lighting = section === "light";
-  const uploadPct = job.status === "uploading" ? Math.round(job.progress * 100) : null;
 
   return (
     <div className="flex min-h-screen flex-col bg-[#0a0b0c] text-neutral-100 lg:h-screen" onDragOver={(e) => e.preventDefault()} onDrop={ed.onDrop}>
@@ -521,7 +525,7 @@ function ScreenSection({ ed }: { ed: ScreenEditor }) {
         }
       >
         <p className="num truncate text-sm">
-          {ed.file ? ed.file.name : tr("Nenhuma escolhida", "None chosen")}
+          {ed.file ? ed.file.name : tr("Nenhuma · arraste ou cole (Ctrl+V)", "None · drop or paste (Ctrl+V)")}
           {source && <span className="text-neutral-500"> · {source.width} × {source.height}{ed.animated ? ` · ${source.frames.length} ${tr("quadros", "frames")}` : ""}</span>}
         </p>
         {ed.loadError && <p className="text-xs text-red-400">{ed.loadError}</p>}

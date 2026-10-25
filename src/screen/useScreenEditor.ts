@@ -10,6 +10,7 @@ import { SCREEN_H, SCREEN_W, sendToScreen } from "./send";
 import { useUploadJob } from "./uploadJob";
 import { drawClockFace } from "./clockFace";
 import { useLang } from "../i18n";
+import { imageFromClipboard, pastingIntoText } from "./paste";
 
 const MAX_FRAMES = 60;
 // The zoom slider is logarithmic: 0 → 20%, 100 → 800%, 100% sits a little left of centre.
@@ -20,8 +21,11 @@ export const toSlider = (z: number) => Math.round((100 * Math.log(z / ZOOM_MIN))
 const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 export const DELAYS = [30, 50, 80, 100, 150, 200, 255];
 
-/** `screenPx`: how wide the TFT is drawn on screen (or a getter, when it changes), so dragging moves the image under the pointer. */
-export function useScreenEditor(screenPx: number | (() => number)) {
+/**
+ * `screenPx`: how wide the TFT is drawn on screen (or a getter, when it changes), so dragging moves the image under the pointer.
+ * `onPaste`: called when an image pasted with Ctrl+V is taken.
+ */
+export function useScreenEditor(screenPx: number | (() => number), onPaste?: () => void) {
   const { kb } = useDevice();
   const lang = useLang();
   const tr = (pt: string, en: string) => (lang === "en" ? en : pt);
@@ -44,6 +48,23 @@ export function useScreenEditor(screenPx: number | (() => number)) {
       void fetch(sample)
         .then((r) => r.blob())
         .then((b) => setFile(new File([b], tr("amostra.png", "sample.png"), { type: b.type })));
+  }, []);
+
+  const pasted = useRef(onPaste);
+  pasted.current = onPaste;
+  useEffect(() => {
+    const onPasteEvent = (e: ClipboardEvent) => {
+      if (!e.clipboardData || pastingIntoText(e.target)) return;
+      const data = e.clipboardData;
+      if (![...data.types].some((t) => t === "Files" || t === "text/html" || t === "text/plain")) return;
+      void imageFromClipboard(data).then((f) => {
+        if (!f) return;
+        setFile(f);
+        pasted.current?.();
+      });
+    };
+    window.addEventListener("paste", onPasteEvent);
+    return () => window.removeEventListener("paste", onPasteEvent);
   }, []);
 
   useEffect(() => {
