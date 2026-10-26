@@ -1,19 +1,24 @@
 // The configurator: the board in 3D as the stage, each section's controls in a dock below.
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Cable, Check, Clock, Copy, Crosshair, Download, ImagePlus, Minus, Plus, RotateCcw, ShieldCheck, Timer, Trash2, TriangleAlert, Upload, Usb } from "lucide-react";
+import { Cable, Check, Clock, Copy, Crosshair, Download, ImagePlus, RotateCcw, ShieldCheck, Timer, Trash2, TriangleAlert, Upload, Usb } from "lucide-react";
 import { describeConnectError, useAction, useDevice, type ConnectError } from "../device";
-import { BackupError, applyRestore, isEmptyPlan, parseBackup, planRestore, readCurrent, type RestorePlan } from "../backup";
+import { loadEffects, loadOnKeyboard, mergeEffects, removeEffect, saveEffects, saveOnKeyboard, upsertEffect } from "../studio/store";
+import { colourAt as keyColourAt, newEffect, paintArea, type StudioEffect } from "../studio/effect";
+import { planLoop } from "../studio/render";
+import { applyStudio } from "../studio/apply";
+import { BackupError, applyRestore, isEmptyPlan, parseBackup, planRestore, readCurrent, readPerKey, type RestorePlan } from "../backup";
 import { FACTORY_BASE, FACTORY_FN_WIN } from "../layout/x85-factory";
 import { X85_KEYS, X85_VIRTUAL } from "../layout/x85";
 import { FUNCTIONS, HID_NAMES, KEY_GROUPS, KEY_KEYWORDS, isEmpty, keyValue, sameValue, type KeyValue } from "../protocol/keycodes";
-import { LIGHT_MODES, REPORT_RATES, SIDE_LIGHT_MODES, type LightSetting, type SleepSetting } from "../protocol/x85";
+import { REPORT_RATES, type LightSetting, type Rgb, type SleepSetting } from "../protocol/x85";
+import { ANIMATION_MODE, EFFECTS, PER_KEY_MODE, effectOf, optionFor } from "../protocol/effects";
 import { DEFAULT_VIEW, type Fit } from "../screen/load";
 import { clampDelay } from "../screen/packets";
 import { SCREEN_H, SCREEN_W } from "../screen/send";
 import { DELAYS, toSlider, toZoom, useScreenEditor, type ScreenEditor } from "../screen/useScreenEditor";
-import { useUploadJob } from "../screen/uploadJob";
+import { studioJob, useStudioJob, useUploadJob } from "../screen/uploadJob";
 import type { LogEntry } from "../hid/transport";
 import { useLang, useTr, type Lang } from "../i18n";
 import { keyName, keyShortName, labelIn } from "../i18n/labels";
@@ -21,14 +26,15 @@ import { navigate, pathOf, type Section } from "../router";
 import { isDevMode } from "../devMode";
 import { Logo, PRODUCT, SITE } from "../brand";
 import { Board3D, type Framing } from "./Board3D";
+import { Card, Dock, PaintTools, Stepper, Swatches } from "./controls";
+import { SavedEffects, StudioCards, type Pick } from "./Studio";
+import { paint, paintLayer, type Brush } from "./paint";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/motion/tabs";
-import { RangeSlider } from "@/components/motion/range-slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/motion/select";
 import { Switch } from "@/components/motion/switch";
 import { Checkbox } from "@/components/motion/checkbox";
 import { HoldActionButton } from "@/components/motion/hold-action-button";
-import { ColorPicker, ColorPickerArea, ColorPickerContent, ColorPickerHexInput, ColorPickerHue, ColorPickerTrigger } from "@/components/motion/color-picker";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxGroup, ComboboxInput, ComboboxItem, ComboboxLabel, ComboboxList, ComboboxTrigger } from "@/components/motion/combobox";
 import { Table, type TableColumn } from "@/components/motion/table";
 
@@ -41,10 +47,6 @@ const SECTIONS: { id: Section; pt: string; en: string }[] = [
   ...(DEV ? [{ id: "log" as const, pt: "Log", en: "Log" }] : []),
 ];
 const ALL_POSITIONS = [...X85_KEYS.map((k) => k.pos), ...X85_VIRTUAL.map((v) => v.pos)];
-// The first is the board's factory white.
-const PRESETS = ["#fafffa", "#ff2a2a", "#ff8a00", "#ffe100", "#2aff6a", "#00d5ff", "#2a5bff", "#b02aff", "#ff2ad4"];
-const toHex = ({ r, g, b }: LightSetting["rgb"]) => "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
-const fromHex = (hex: string) => ({ r: parseInt(hex.slice(1, 3), 16), g: parseInt(hex.slice(3, 5), 16), b: parseInt(hex.slice(5, 7), 16) });
 const UDEV = `curl -fsSL ${SITE}/udev.sh | sudo sh`;
 
 type Layer = "base" | "fn";
@@ -54,6 +56,17 @@ export function Configurator({ section }: { section: Section }) {
   const lang = useLang();
   const tr = useTr();
   const job = useUploadJob();
+  const storing = useStudioJob();
+  // How storing a studio effect ended, shown on whichever tab is in front.
+  const storedStatus = useMemo(
+    () =>
+      storing.status === "success"
+        ? { ok: true, text: tr("Efeito gravado no teclado", "Effect stored on the keyboard") }
+        : storing.status === "error"
+          ? { ok: false, text: storing.error ?? tr("O teclado não confirmou. Tente de novo.", "The keyboard did not confirm. Try again.") }
+          : null,
+    [storing.status, storing.error, lang],
+  );
   const go = (id: Section) => navigate(pathOf({ lang, page: "app", section: id }), true);
   const tftPx = useRef(150);
   const ed = useScreenEditor(() => tftPx.current, () => section !== "screen" && go("screen"));
@@ -61,9 +74,11 @@ export function Configurator({ section }: { section: Section }) {
   const [selected, setSelected] = useState<number | null>(null);
   // Light drafts live here so the board can preview them before they are applied.
   const [light, setLight] = useState<LightSetting | undefined>(snapshot.light);
-  const [side, setSide] = useState<LightSetting | undefined>(snapshot.sideLight);
+  const [designs, setDesigns] = useState<Rgb[][] | undefined>(snapshot.perKey);
+  const [brush, setBrush] = useState<Brush>({ tool: "brush", rgb: { r: 255, g: 0, b: 0 } });
   useEffect(() => setLight(snapshot.light), [snapshot.light]);
-  useEffect(() => setSide(snapshot.sideLight), [snapshot.sideLight]);
+  useEffect(() => setDesigns(snapshot.perKey), [snapshot.perKey]);
+  const studio = useStudio(brush, setBrush);
   // Esc deselects the key, unless it is closing an open list, menu or picker first. Listened
   // in the capture phase, so the popup is still marked open when this runs.
   useEffect(() => {
@@ -76,21 +91,39 @@ export function Configurator({ section }: { section: Section }) {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [section, selected]);
   const uploadPct = job.status === "uploading" ? Math.round(job.progress * 100) : null;
+  const storingPct = storing.status === "uploading" ? Math.round(storing.progress * 100) : null;
   useEffect(() => {
-    // While the screen uploads, the tab shows how far it got, even with another tab in front.
+    // While the screen uploads or an effect is stored, the tab shows how far it got, even with
+    // another tab in front.
     document.title =
       uploadPct !== null
         ? `${uploadPct}% · ${tr("Enviando para a tela", "Sending to the screen")}`
-        : `${PRODUCT} · ${tr(SECTIONS.find((s) => s.id === section)?.pt ?? "", SECTIONS.find((s) => s.id === section)?.en ?? "")}`;
+        : storingPct !== null
+          ? `${storingPct}% · ${tr("Gravando o efeito", "Storing the effect")}`
+          : `${PRODUCT} · ${tr(SECTIONS.find((s) => s.id === section)?.pt ?? "", SECTIONS.find((s) => s.id === section)?.en ?? "")}`;
   });
 
-  const framing: Framing = section === "log" ? "keys" : section;
+  // Painting looks straight down, with the legends, so every key is as easy to reach.
+  const painting = section === "light" && (light?.mode === PER_KEY_MODE || (light?.mode === ANIMATION_MODE && studio.pick !== null));
+  const framing: Framing = section === "log" ? "keys" : painting ? "paint" : section;
   const factory = layer === "base" ? FACTORY_BASE : FACTORY_FN_WIN;
   const map = snapshot[layer === "base" ? "keymap" : "fnKeymap"] ?? null;
   const showMap = map ?? FACTORY_BASE;
   const edited = (pos: number) => map !== null && !sameValue(factory[pos], map[pos]);
   const faceKey = `${lang}:${layer}:${map ? map.map((v) => v.join(",")).join(";") : "factory"}`;
   const lighting = section === "light";
+  // Several pointer moves can land before a render, so strokes build on the latest draft.
+  const paintAt = (design: number, pos: number) => {
+    if (brush.tool === "eyedropper") {
+      const picked = designs && paint(designs[design], pos, brush, LED_SLOTS).picked;
+      if (picked) setBrush({ tool: "brush", rgb: picked });
+      return;
+    }
+    setDesigns((ds) => {
+      const next = ds && paint(ds[design], pos, brush, LED_SLOTS).design;
+      return next ? ds.map((d, i) => (i === design ? next : d)) : ds;
+    });
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-[#0a0b0c] text-neutral-100 lg:h-screen" onDragOver={(e) => e.preventDefault()} onDrop={ed.onDrop}>
@@ -113,6 +146,7 @@ export function Configurator({ section }: { section: Section }) {
               <TabsTrigger key={s.id} value={s.id}>
                 {tr(s.pt, s.en)}
                 {s.id === "screen" && uploadPct !== null && <span className="num ml-1.5 text-data">{uploadPct}%</span>}
+                {s.id === "light" && storingPct !== null && <span className="num ml-1.5 text-data">{storingPct}%</span>}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -160,12 +194,20 @@ export function Configurator({ section }: { section: Section }) {
             }
             faceKey={faceKey}
             light={lighting ? light : undefined}
-            sideLight={lighting ? side : undefined}
+            perKey={lighting && light?.mode === PER_KEY_MODE ? designs?.[light.option] : undefined}
+            studio={lighting && light?.mode === ANIMATION_MODE && !studio.unknown ? studio.preview : undefined}
+            onPaint={
+              lighting && light?.mode === PER_KEY_MODE && designs
+                ? (pos) => paintAt(light.option, pos)
+                : lighting && light?.mode === ANIMATION_MODE && studio.pick
+                  ? studio.pickAt
+                  : undefined
+            }
             ready={!!kb && !loading}
             wakeLight={snapshot.light}
             tftPx={tftPx}
             selected={section === "keys" ? selected : null}
-            legends={section === "keys" || section === "log"}
+            legends={section === "keys" || section === "log" || painting}
             onKey={(pos) => section === "keys" && setSelected(pos)}
             fallback={<p className="grid size-full place-items-center text-sm text-neutral-500">{tr("Este computador não tem WebGL para o teclado em 3D.", "This computer has no WebGL for the 3D keyboard.")}</p>}
           />
@@ -180,6 +222,7 @@ export function Configurator({ section }: { section: Section }) {
 
         <Glide>
           <section aria-label={tr("Controles", "Controls")} className="border-t border-white/[0.05] px-4 pb-4 pt-3">
+            <Toast status={storedStatus} />
             {kb && error && <ConnectNotice error={error} className="mx-auto mb-3 max-w-[1320px]" />}
             {dryRun && <p className="mb-2 text-xs text-amber-400">{tr("Modo simulação: nada é gravado no teclado; os pacotes vão para o Log.", "Dry run: nothing is written to the keyboard; packets go to the Log.")}</p>}
             {section === "log" ? (
@@ -193,7 +236,7 @@ export function Configurator({ section }: { section: Section }) {
                 <div key={section} className="animate-fade-in">
                   {section === "screen" && <ScreenSection ed={ed} />}
                   {section === "keys" && <KeysSection layer={layer} setLayer={setLayer} selected={selected} setSelected={setSelected} />}
-                  {section === "light" && <LightSection main={light} setMain={setLight} side={side} setSide={setSide} />}
+                  {section === "light" && <LightSection light={light} setLight={setLight} designs={designs} setDesigns={setDesigns} brush={brush} setBrush={setBrush} studio={studio} />}
                   {section === "system" && <SystemSection />}
                 </div>
               </div>
@@ -252,61 +295,6 @@ function LangSwitch({ section }: { section: Section }) {
 }
 
 /* ---------- Building blocks ---------- */
-
-function Dock({ cols, children }: { cols: string; children: ReactNode }) {
-  return <div className={cn("mx-auto grid max-w-[1320px] items-stretch gap-3", cols)}>{children}</div>;
-}
-
-function Card({ title, aside, className, children }: { title?: string; aside?: ReactNode; className?: string; children: ReactNode }) {
-  return (
-    <section className={cn("flex min-w-0 flex-col gap-4 rounded-[24px] border border-white/[0.07] bg-[#101112] p-5", className)}>
-      {(title || aside) && (
-        <div className="flex items-center justify-between gap-3">
-          {title && <h2 className="text-sm text-neutral-400">{title}</h2>}
-          {aside}
-        </div>
-      )}
-      {children}
-    </section>
-  );
-}
-
-function Round({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="grid size-10 shrink-0 place-items-center rounded-full border border-white/[0.06] bg-[#1a1b1d] text-neutral-300 transition-colors hover:text-white disabled:opacity-40"
-    >
-      {children}
-    </button>
-  );
-}
-
-function Stepper(props: { label: string; value: number; display: string; min: number; max: number; step?: number; onChange: (v: number) => void; disabled?: boolean }) {
-  const tr = useTr();
-  const step = props.step ?? 1;
-  const clamp = (v: number) => Math.min(props.max, Math.max(props.min, v));
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-neutral-400">{props.label}</span>
-        <span className={cn("num", props.disabled && "text-neutral-600")}>{props.display}</span>
-      </div>
-      <div className="flex items-center gap-3">
-        <Round label={`${tr("Diminuir", "Decrease")} ${props.label.toLowerCase()}`} disabled={props.disabled || props.value <= props.min} onClick={() => props.onChange(clamp(props.value - step))}>
-          <Minus className="size-4" />
-        </Round>
-        <RangeSlider className="flex-1" value={props.value} min={props.min} max={props.max} step={step} showTicks={false} disabled={props.disabled} aria-label={props.label} onValueChange={props.onChange} />
-        <Round label={`${tr("Aumentar", "Increase")} ${props.label.toLowerCase()}`} disabled={props.disabled || props.value >= props.max} onClick={() => props.onChange(clamp(props.value + step))}>
-          <Plus className="size-4" />
-        </Round>
-      </div>
-    </div>
-  );
-}
 
 function BigButton({ primary, disabled, onClick, progress, children }: { primary?: boolean; disabled?: boolean; onClick: () => void; progress?: number; children: ReactNode }) {
   return (
@@ -704,134 +692,282 @@ function KeysSection(props: { layer: Layer; setLayer: (l: Layer) => void; select
 
 /* ---------- Lighting ---------- */
 
-function LightSection(props: { main: LightSetting | undefined; setMain: (l: LightSetting) => void; side: LightSetting | undefined; setSide: (l: LightSetting) => void }) {
+/** The slots that have a light: the keys, not the knob or the screen. */
+const LED_SLOTS = X85_KEYS.map((k) => k.pos);
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/** The effect studio's state: the draft, what is on the keyboard, the saved list and the board tools. */
+function useStudio(brush: Brush, setBrush: (b: Brush) => void) {
+  const [onKeyboard, setOnKeyboard] = useState<StudioEffect | null>(loadOnKeyboard);
+  const [draft, setDraftState] = useState<StudioEffect>(() => onKeyboard ?? newEffect());
+  // Untouched, a draft that Dorsal did not see stored is not what the keyboard shows.
+  const [edited, setEdited] = useState(false);
+  const [saved, setSaved] = useState<StudioEffect[]>(loadEffects);
+  const [layerId, setLayerId] = useState<string | null>(null);
+  const [colourAt, setColourAt] = useState(0);
+  const [chosen, setPick] = useState<Pick>(null);
+  // A paint layer is painted as soon as it is selected; the other tools are picked by hand.
+  const selected = draft.layers.find((l) => l.id === layerId) ?? draft.layers[0];
+  const pick: Pick = selected?.kind === "paint" ? "keys" : chosen;
+  const { snapshot } = useDevice();
+  const plan = useMemo(() => planLoop(draft), [draft]);
+  // While painting an area, the board shows the selected layer alone, so its keys stand out.
+  const painting = pick === "area" || pick === "remove";
+  const preview = useMemo(() => {
+    if (!painting) return draft;
+    const layer = draft.layers.find((l) => l.id === layerId) ?? draft.layers[0];
+    // An effect layer is dark part of the time, so its area is shown in its colour, steady.
+    return layer ? { ...draft, layers: [{ ...layer, visible: true, ...(layer.kind === "effect" && { kind: "solid" as const }) }] } : draft;
+  }, [draft, layerId, painting]);
+  const setDraft = (e: StudioEffect | ((e: StudioEffect) => StudioEffect)) => {
+    setDraftState(e);
+    setEdited(true);
+  };
+  /** Replaces the whole draft (another effect opened), dropping the selection and the board tool. */
+  const open = (e: StudioEffect) => {
+    setDraft(e);
+    setLayerId(null);
+    setColourAt(0);
+    setPick(null);
+  };
+  return {
+    draft,
+    /** What the board plays: the draft, or the selected layer alone while painting its area. */
+    preview,
+    setDraft,
+    open,
+    onKeyboard,
+    plan,
+    saved,
+    layerId,
+    setLayerId,
+    colourAt,
+    setColourAt,
+    pick,
+    setPick,
+    /** Mode 25 is on the keyboard, but Dorsal does not know which effect it holds. */
+    unknown: snapshot.light?.mode === ANIMATION_MODE && !onKeyboard && !edited,
+    dirty: !sameJson(draft, onKeyboard),
+    // Several pointer moves can land before a render, so strokes build on the latest draft.
+    pickAt: (pos: number) => {
+      if (!LED_SLOTS.includes(pos)) return;
+      if (pick === "keys") {
+        if (brush.tool === "eyedropper") {
+          const picked = selected?.keys && paintLayer(selected.keys, pos, brush, LED_SLOTS, keyColourAt(draft, pos, 0, plan.timings)).picked;
+          if (picked) setBrush({ tool: "brush", rgb: picked });
+          return;
+        }
+        setDraft((e) => ({ ...e, layers: e.layers.map((l) => (l.id !== selected?.id || !l.keys ? l : { ...l, keys: paintLayer(l.keys, pos, brush, LED_SLOTS, { r: 0, g: 0, b: 0 }).keys ?? l.keys })) }));
+        return;
+      }
+      setDraft((e) => {
+        const id = e.layers.some((l) => l.id === layerId) ? layerId : e.layers[0]?.id;
+        return { ...e, layers: e.layers.map((l) => (l.id !== id ? l : pick === "centre" ? { ...l, centre: pos } : { ...l, area: paintArea(l.area, pos, pick === "area") })) };
+      });
+      if (pick === "centre") setPick(null);
+    },
+    save: () => {
+      const next = upsertEffect(saved, draft);
+      saveEffects(next);
+      setSaved(next);
+    },
+    remove: (id: string) => {
+      const next = removeEffect(saved, id);
+      saveEffects(next);
+      setSaved(next);
+    },
+    stored: (e: StudioEffect) => {
+      saveOnKeyboard(e);
+      setOnKeyboard(e);
+      setEdited(false);
+    },
+    discard: () => {
+      setDraftState(onKeyboard ?? newEffect());
+      setEdited(false);
+      setLayerId(null);
+      setColourAt(0);
+      setPick(null);
+    },
+  };
+}
+type Studio = ReturnType<typeof useStudio>;
+
+function LightSection(props: {
+  light: LightSetting | undefined;
+  setLight: (l: LightSetting) => void;
+  designs: Rgb[][] | undefined;
+  setDesigns: (d: Rgb[][] | undefined) => void;
+  brush: Brush;
+  setBrush: (b: Brush) => void;
+  studio: Studio;
+}) {
   const { kb, snapshot, patch } = useDevice();
-  const { busy, status, run } = useAction();
+  const { busy: applying, status, run } = useAction();
   const tr = useTr();
+  const lang = useLang();
+  const storing = useStudioJob();
+  const progress = storing.status === "uploading" ? storing.progress : null;
+  const busy = applying || progress !== null;
   if (!kb) return null;
-  const { main, side } = props;
-  if (!main || !side)
+  const { light, designs, brush, studio } = props;
+  if (!light)
     return (
       <Card>
         <p className="text-sm text-neutral-500">{tr("Lendo o teclado…", "Reading the keyboard…")}</p>
       </Card>
     );
-  const mainDirty = JSON.stringify(main) !== JSON.stringify(snapshot.light);
-  const sideDirty = JSON.stringify(side) !== JSON.stringify(snapshot.sideLight);
-  const set = (p: Partial<LightSetting>) => props.setMain({ ...main, ...p });
-  const setS = (p: Partial<LightSetting>) => props.setSide({ ...side, ...p });
-  const apply = () =>
-    run(tr("Iluminação aplicada", "Lighting applied"), async () => {
-      if (mainDirty && !(await kb.setLight(main))) return false;
-      if (sideDirty && !(await kb.setSideLight(side))) return false;
-      if (!kb.t.dryRun) patch({ light: main, sideLight: side });
-      return true;
-    });
-  const discard = () => {
-    if (snapshot.light) props.setMain(snapshot.light);
-    if (snapshot.sideLight) props.setSide(snapshot.sideLight);
+  const effect = effectOf(light.mode);
+  const perKey = light.mode === PER_KEY_MODE;
+  const custom = light.mode === ANIMATION_MODE;
+  const lightDirty = !sameJson(light, snapshot.light);
+  const dirtyDesigns = (designs ?? []).flatMap((d, i) => (sameJson(d, snapshot.perKey?.[i]) ? [] : [i]));
+  const dirty = lightDirty || dirtyDesigns.length > 0 || (custom && studio.dirty);
+  const set = (p: Partial<LightSetting>) => props.setLight({ ...light, ...p });
+  // Storing runs as a global job, not in this tab: it goes on, and keeps its progress, when
+  // another tab is opened meanwhile.
+  const storeStudio = async () => {
+    const draft = studio.draft;
+    studioJob.start(tr("Gravando o efeito", "Storing the effect"));
+    try {
+      let ok = true;
+      for (const i of dirtyDesigns) if (ok) ok = await kb.setPerKey(i, designs![i]);
+      if (ok) ok = await applyStudio(kb, draft, light, studioJob.progress, studio.onKeyboard);
+      if (ok && !kb.t.dryRun) {
+        studio.stored(draft);
+        patch({ light: { ...light, mode: ANIMATION_MODE, option: 0 }, perKey: designs });
+      }
+      studioJob.finish(ok);
+    } catch (e) {
+      studioJob.finish(false, `${tr("Não deu certo", "It did not work")}: ${e instanceof Error ? e.message : String(e)}`);
+    }
   };
-  const dirty = mainDirty || sideDirty;
+  const apply = () =>
+    custom
+      ? storeStudio()
+      : run(tr("Iluminação aplicada", "Lighting applied"), async () => {
+          // The designs first, then the mode, so a design on show is shown as written.
+          for (const i of dirtyDesigns) if (!(await kb.setPerKey(i, designs![i]))) return false;
+          if ((lightDirty || (perKey && dirtyDesigns.length)) && !(await kb.setLight(light))) return false;
+          if (!kb.t.dryRun) patch({ light, perKey: designs });
+          return true;
+        });
+  const discard = () => {
+    if (snapshot.light) props.setLight(snapshot.light);
+    props.setDesigns(snapshot.perKey);
+    studio.discard();
+  };
   const of4 = (n: number) => tr(`${n} de 4`, `${n} of 4`);
+  const name = (pair: [string, string]) => (lang === "en" ? pair[1] : pair[0]);
 
   return (
     <>
       <div className="mx-auto mb-3 flex max-w-[1320px] flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-data">{dirty ? tr("Prévia, não aplicado", "Preview, not applied") : ""}</p>
-        <div className="flex items-center gap-2">
-          <Status status={status} />
+        {custom ? (
+          <SavedEffects draft={studio.draft} setDraft={studio.open} saved={studio.saved} save={studio.save} remove={studio.remove} />
+        ) : (
+          <span />
+        )}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {custom && (
+            <p className="text-right text-xs text-neutral-500">
+              {studio.unknown && tr("O Dorsal não sabe qual efeito está gravado no teclado.", "Dorsal does not know which effect the keyboard holds.")}
+              {studio.plan.adjusted && <span className="block text-amber-400/90">{tr("Velocidades ajustadas para o ciclo fechar.", "Speeds adjusted so the loop closes.")}</span>}
+            </p>
+          )}
+          <Toast status={status} />
           <button type="button" disabled={busy || !dirty} onClick={discard} className="h-9 rounded-lg px-3 text-sm text-neutral-300 hover:text-white disabled:text-neutral-600">
             {tr("Descartar", "Discard")}
           </button>
           <button type="button" disabled={busy || !dirty} onClick={apply} className="h-9 rounded-lg bg-neutral-100 px-4 text-sm font-medium text-neutral-950 hover:bg-white disabled:bg-white/[0.06] disabled:text-neutral-500">
-            {busy ? tr("Aplicando…", "Applying…") : tr("Aplicar no teclado", "Apply to keyboard")}
+            {progress !== null
+              ? tr(`Gravando… ${Math.round(progress * 100)}%`, `Storing… ${Math.round(progress * 100)}%`)
+              : busy
+                ? tr("Aplicando…", "Applying…")
+                : tr("Aplicar no teclado", "Apply to keyboard")}
           </button>
         </div>
       </div>
-      <Dock cols="md:grid-cols-2 xl:grid-cols-[minmax(0,2.3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)]">
+      <Dock cols={custom ? "md:grid-cols-2 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1.3fr)_minmax(0,1.9fr)]" : "md:grid-cols-2 xl:grid-cols-[minmax(0,2.3fr)_minmax(0,1.3fr)_minmax(0,1fr)]"}>
         <Card title={tr("Efeito das teclas", "Key effect")} className="md:col-span-2 xl:col-span-1">
-          <EffectGrid modes={LIGHT_MODES} value={main.mode} onChange={(mode) => set({ mode })} cols="grid-cols-3 sm:grid-cols-4" />
-        </Card>
-        <Card title={tr("Cor", "Colour")}>
-          <Swatches value={main} onChange={set} label={tr("das teclas", "for the keys")} />
-        </Card>
-        <Card title={tr("Brilho e velocidade", "Brightness and speed")}>
-          <Stepper label={tr("Brilho", "Brightness")} value={main.brightness} display={of4(main.brightness)} min={0} max={4} onChange={(brightness) => set({ brightness })} disabled={main.mode === 0} />
-          <Stepper label={tr("Velocidade", "Speed")} value={main.speed} display={of4(main.speed)} min={0} max={4} onChange={(speed) => set({ speed })} disabled={main.mode === 0} />
-        </Card>
-        <Card title={tr("Luz lateral", "Side light")} aside={<Switch checked={side.mode !== 0} onCheckedChange={(on) => setS({ mode: on ? 1 : 0 })} ariaLabel={tr("Luz lateral", "Side light")} />}>
-          {side.mode !== 0 ? (
-            <>
-              <EffectGrid modes={SIDE_LIGHT_MODES} value={side.mode} onChange={(mode) => setS({ mode })} hideOff cols="grid-cols-2" />
-              <Swatches value={side} onChange={setS} label={tr("da luz lateral", "for the side light")} small />
-            </>
-          ) : (
-            <p className="text-xs text-neutral-500">
-              {tr("Se nada mudar ao aplicar, o seu modelo não tem essa faixa.", "If nothing changes when you apply, your model does not have this band.")}
-            </p>
+          <EffectGrid value={light.mode} onChange={(mode) => set({ mode, option: optionFor(light.mode, mode, light.option) })} cols={custom ? "grid-cols-3 sm:grid-cols-4" : "grid-cols-3 sm:grid-cols-4 xl:grid-cols-5"} />
+          {effect?.options && (
+            <Tabs value={String(light.option)} onValueChange={(v) => set({ option: Number(v) })} variant="segment">
+              <TabsList className="flex-wrap bg-white/[0.04]">
+                {effect.options.map((o, i) => (
+                  <TabsTrigger key={i} value={String(i)}>
+                    {name(o)}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
           )}
+          {custom && <Stepper label={tr("Brilho", "Brightness")} value={light.brightness} display={of4(light.brightness)} min={0} max={4} onChange={(brightness) => set({ brightness })} />}
         </Card>
+        {custom ? (
+          <StudioCards
+            draft={studio.draft}
+            setDraft={studio.setDraft}
+            layerId={studio.layerId}
+            setLayerId={studio.setLayerId}
+            colourAt={studio.colourAt}
+            setColourAt={studio.setColourAt}
+            pick={studio.pick}
+            setPick={studio.setPick}
+            plan={studio.plan}
+            brush={brush}
+            setBrush={props.setBrush}
+          />
+        ) : perKey ? (
+          <Card title={tr("Pintar as teclas", "Paint the keys")}>
+            {designs ? (
+              <>
+                <PaintTools brush={brush} setBrush={props.setBrush} eraser={tr("Borracha", "Eraser")} />
+              </>
+            ) : (
+              <p className="text-xs text-neutral-500">
+                {"perKey" in snapshot
+                  ? tr("Não deu para ler os desenhos do teclado. Reconecte para tentar de novo.", "Could not read the keyboard's designs. Reconnect to try again.")
+                  : tr("Lendo os desenhos…", "Reading the designs…")}
+              </p>
+            )}
+          </Card>
+        ) : (
+          <Card title={tr("Cor", "Colour")}>
+            {effect?.colour === false ? (
+              <p className="text-xs text-neutral-500">{light.mode === 0 ? tr("A luz está desligada.", "The light is off.") : tr("Esse efeito usa as próprias cores.", "This effect uses its own colours.")}</p>
+            ) : (
+              <Swatches value={light} onChange={set} label={tr("das teclas", "for the keys")} />
+            )}
+          </Card>
+        )}
+        {!custom && <Card title={tr("Brilho e velocidade", "Brightness and speed")}>
+          <Stepper label={tr("Brilho", "Brightness")} value={light.brightness} display={of4(light.brightness)} min={0} max={4} onChange={(brightness) => set({ brightness })} disabled={light.mode === 0} />
+          <Stepper label={tr("Velocidade", "Speed")} value={light.speed} display={of4(light.speed)} min={0} max={4} onChange={(speed) => set({ speed })} disabled={!effect?.speed} />
+        </Card>}
       </Dock>
     </>
   );
 }
 
-function EffectGrid({ modes, value, onChange, hideOff, cols }: { modes: Record<number, string>; value: number; onChange: (mode: number) => void; hideOff?: boolean; cols: string }) {
+function EffectGrid({ value, onChange, cols }: { value: number; onChange: (mode: number) => void; cols: string }) {
   const lang = useLang();
-  const entries = Object.entries(modes).filter(([id]) => !(hideOff && id === "0"));
   return (
     <div className={cn("grid gap-1.5", cols)} role="radiogroup">
-      {entries.map(([id, name]) => {
-        const on = Number(id) === value;
+      {EFFECTS.map((e) => {
+        const on = e.id === value;
         return (
           <button
-            key={id}
+            key={e.id}
             type="button"
             role="radio"
             aria-checked={on}
-            onClick={() => onChange(Number(id))}
+            onClick={() => onChange(e.id)}
             className={cn("h-8 truncate rounded-lg px-2 text-xs transition-colors", on ? "bg-neutral-100 font-medium text-neutral-950" : "bg-white/[0.04] text-neutral-300 hover:bg-white/[0.08] hover:text-white")}
           >
-            {labelIn(lang, name)}
+            {lang === "en" ? e.en : e.pt}
           </button>
         );
       })}
-    </div>
-  );
-}
-
-function Swatches({ value, onChange, label, small }: { value: LightSetting; onChange: (p: Partial<LightSetting>) => void; label: string; small?: boolean }) {
-  const tr = useTr();
-  const hex = toHex(value.rgb);
-  const custom = !value.rainbow && !PRESETS.includes(hex);
-  const ring = (on: boolean) => cn(small ? "size-6" : "size-8", "shrink-0 rounded-full ring-offset-2 ring-offset-[#101112] transition-shadow", on ? "ring-2 ring-white" : "ring-1 ring-white/10 hover:ring-white/40");
-  return (
-    <div className="flex flex-wrap items-center gap-2.5">
-      <button
-        type="button"
-        aria-label={`${tr("Arco-íris", "Rainbow")} ${label}`}
-        aria-pressed={value.rainbow}
-        onClick={() => onChange({ rainbow: true })}
-        className={cn(ring(value.rainbow), "bg-[conic-gradient(#ff3b3b,#ffb02e,#f5ff3b,#3bff6e,#3bd8ff,#3b5bff,#c63bff,#ff3b3b)]")}
-      />
-      {PRESETS.map((c) => (
-        <button key={c} type="button" aria-label={`${tr("Cor", "Colour")} ${c} ${label}`} aria-pressed={!value.rainbow && hex === c} onClick={() => onChange({ rainbow: false, rgb: fromHex(c) })} className={ring(!value.rainbow && hex === c)} style={{ background: c }} />
-      ))}
-      <ColorPicker alpha={false} value={hex} onValueChange={(h) => onChange({ rainbow: false, rgb: fromHex(h) })}>
-        <ColorPickerTrigger
-          aria-label={`${tr("Outra cor", "Other colour")} ${label}`}
-          className={cn(ring(custom), "grid place-items-center border-0 bg-transparent p-0 [&>span:first-child]:hidden")}
-          style={custom ? { background: hex } : undefined}
-        >
-          <Plus className="size-4 text-neutral-300" />
-        </ColorPickerTrigger>
-        {/* The dock sits at the bottom of the window, so the panel opens upwards. */}
-        <ColorPickerContent align="end" className="top-auto bottom-full mb-2 mt-0">
-          <ColorPickerArea label={tr("Saturação e brilho", "Saturation and brightness")} />
-          <ColorPickerHue label={tr("Matiz", "Hue")} />
-          <ColorPickerHexInput />
-        </ColorPickerContent>
-      </ColorPicker>
     </div>
   );
 }
@@ -886,9 +1022,10 @@ function SystemSection() {
       p.keys.length && (p.keys.length === 1 ? tr("1 tecla", "1 key") : tr(`${p.keys.length} teclas`, `${p.keys.length} keys`)),
       p.fnKeys.length && (p.fnKeys.length === 1 ? tr("1 tecla do Fn", "1 Fn key") : tr(`${p.fnKeys.length} teclas do Fn`, `${p.fnKeys.length} Fn keys`)),
       p.light && tr("luz das teclas", "key lighting"),
-      p.sideLight && tr("luz lateral", "side light"),
+      p.perKey.length && (p.perKey.length === 1 ? tr("1 desenho de cores", "1 colour design") : tr(`${p.perKey.length} desenhos de cores`, `${p.perKey.length} colour designs`)),
       (p.reportRate !== undefined || p.debounce !== undefined) && tr("resposta", "response"),
       p.sleep && tr("bateria", "battery"),
+      p.studio.length && (p.studio.length === 1 ? tr("1 efeito salvo", "1 saved effect") : tr(`${p.studio.length} efeitos salvos`, `${p.studio.length} saved effects`)),
     ]
       .filter(Boolean)
       .join(", ");
@@ -896,6 +1033,8 @@ function SystemSection() {
     plan &&
     run(tr("Backup restaurado", "Backup restored"), async () => {
       try {
+        // Saved effects live in Dorsal: they join the list, nothing is uploaded.
+        if (plan.studio.length) saveEffects(mergeEffects(loadEffects(), plan.studio));
         return await applyRestore(kb, plan);
       } finally {
         setPlan(null);
@@ -933,9 +1072,10 @@ function SystemSection() {
         debounce: await kb.debounce(),
         sleep: await kb.sleep(),
         light: await kb.light(),
-        sideLight: await kb.sideLight(),
+        perKey: await readPerKey(kb),
         keymap: await kb.keymap(0, 0),
         fnKeymapWin: await kb.fnKeymap(0, 0),
+        studio: loadEffects(),
       };
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const a = document.createElement("a");

@@ -37,8 +37,7 @@ const VIEWS: { id: Framing; pt: string; en: string; capPt: string; capEn: string
   { id: "light", pt: "Iluminação", en: "Lighting", capPt: "Os efeitos animam no 3D antes de ir para o teclado.", capEn: "Effects play in 3D before they reach the keyboard." },
   { id: "system", pt: "Sistema", en: "System", capPt: "Polling, debounce, bateria e reset de fábrica.", capEn: "Polling, debounce, battery and factory reset." },
 ];
-const DEMO_LIGHT: LightSetting = { mode: 4, speed: 2, brightness: 3, rainbow: true, rgb: { r: 250, g: 255, b: 250 } };
-const DEMO_SIDE: LightSetting = { mode: 4, speed: 2, brightness: 4, rainbow: true, rgb: { r: 250, g: 255, b: 250 } };
+const DEMO_LIGHT: LightSetting = { mode: 4, speed: 2, brightness: 3, option: 0, rainbow: true, rgb: { r: 250, g: 255, b: 250 } };
 
 const appPath = (lang: Lang) => pathOf({ lang, page: "app", section: "screen" });
 const go = (path: string) => (e: React.MouseEvent) => {
@@ -216,7 +215,6 @@ function Hero() {
           faceKey={`factory:${lang}`}
           legends={view === "keys"}
           light={view === "light" ? DEMO_LIGHT : undefined}
-          sideLight={view === "light" ? DEMO_SIDE : undefined}
           fallback={<img src={shot(lang, "keys.png")} alt={tr("O configurador mostrando o teclado de cima", "The configurator showing the keyboard from above")} className="mx-auto h-full object-contain" />}
         />
         <div
@@ -283,11 +281,11 @@ const FEATURES = [
   {
     id: "luz",
     title: ["Veja o efeito antes de aplicar.", "See the effect before you apply it."],
-    text: ["Os 21 efeitos das teclas e os 5 da luz lateral animam no modelo 3D. O teclado só muda quando você aplicar.", "The 21 key effects and the 5 side-light effects play on the 3D model. The keyboard only changes when you apply."],
+    text: ["Os 21 efeitos das teclas animam no modelo 3D, e o estúdio cria os seus, em camadas. O teclado só muda quando você aplicar.", "The 21 key effects play on the 3D model, and the studio makes your own, in layers. The keyboard only changes when you apply."],
     points: [
       ["Arco-íris, cores prontas ou qualquer cor", "Rainbow, ready colours or any colour"],
       ["Brilho e velocidade", "Brightness and speed"],
-      ["Luz lateral com efeito próprio", "Side light with its own effect"],
+      ["Estúdio de efeitos, gravado no teclado", "An effect studio, stored on the keyboard"],
       ["Um só botão aplica tudo", "One button applies it all"],
     ],
     image: "light.png",

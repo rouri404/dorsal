@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { PRODUCT_DONGLE, PRODUCT_WIRED, Transport, type LogEntry } from "./hid/transport";
-import { X85, X85_DEVICE_ID, type Identity, type LightSetting, type ScreenInfo, type SleepSetting } from "./protocol/x85";
+import { X85, X85_DEVICE_ID, type Identity, type LightSetting, type Rgb, type ScreenInfo, type SleepSetting } from "./protocol/x85";
+import { readPerKey } from "./backup";
 import type { KeyValue } from "./protocol/keycodes";
 import { DemoTransport, isDemo } from "./demo/DemoTransport";
 import { useLang } from "./i18n";
@@ -13,7 +14,8 @@ export interface Snapshot {
   debounce?: number;
   sleep?: SleepSetting;
   light?: LightSetting;
-  sideLight?: LightSetting;
+  /** The five per-key designs. */
+  perKey?: Rgb[][];
   keymap?: KeyValue[];
   fnKeymap?: KeyValue[];
 }
@@ -23,7 +25,6 @@ const READERS: { [K in SnapshotKey]: (kb: X85) => Promise<Snapshot[K]> } = {
   // Order matters: what the first tabs show is read first.
   keymap: (kb) => kb.keymap(0, 0),
   light: (kb) => kb.light(),
-  sideLight: (kb) => kb.sideLight(),
   reportRate: (kb) => kb.reportRate(),
   debounce: (kb) => kb.debounce(),
   sleep: (kb) => kb.sleep(),
@@ -31,6 +32,8 @@ const READERS: { [K in SnapshotKey]: (kb: X85) => Promise<Snapshot[K]> } = {
   profile: (kb) => kb.profile(),
   powerSave: (kb) => kb.powerSave(),
   fnKeymap: (kb) => kb.fnKeymap(0, 0),
+  // 30 reads that only the per-key editor needs: last, so connecting stays quick.
+  perKey: readPerKey,
 };
 
 interface DeviceState {

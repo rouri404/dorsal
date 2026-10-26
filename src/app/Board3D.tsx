@@ -5,9 +5,13 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { BOARD_ROWS, BOARD_UNITS, INDICATORS, KNOB_PRESS, KNOB_SLOT, SCREEN_SLOT, X85_KEYS } from "../layout/x85";
-import type { LightSetting } from "../protocol/x85";
+import type { LightSetting, Rgb } from "../protocol/x85";
+import { ANIMATION_MODE, PER_KEY_MODE } from "../protocol/effects";
+import type { StudioEffect } from "../studio/effect";
+import { planLoop, studioColours, type LoopPlan } from "../studio/render";
+import { effectFor, LIGHT_POINTS, lightAt } from "./lightFx";
 
-export type Framing = "screen" | "keys" | "light" | "system";
+export type Framing = "screen" | "keys" | "light" | "paint" | "system";
 
 export interface KeyFace {
   label: string;
@@ -38,11 +42,17 @@ interface Shot {
   fov: number;
   fit: [number, number];
 }
-const SCREEN_TOP = at(SCREEN_SLOT.x, 1, SCREEN_SLOT.y).setY(0.62);
+/** The screen sits low in the case, near the plate, with the keys standing above it. */
+const SCREEN_H = 0.12;
+const SCREEN_TOP = at(SCREEN_SLOT.x, 1, SCREEN_SLOT.y).setY(SCREEN_H);
 const FRAMINGS: Record<Framing, Shot> = {
-  screen: { target: SCREEN_TOP, dir: new THREE.Vector3(0, 10.7, 4.6), fov: 12, fit: [3.6, 2.5] },
+  // Steep, so the keys in front of the low screen do not cover it.
+  screen: { target: SCREEN_TOP, dir: new THREE.Vector3(0, 10.7, 2.4), fov: 12, fit: [3.6, 2.5] },
   keys: { target: new THREE.Vector3(0, 0, 0.1), dir: new THREE.Vector3(0, 30, 5.6), fov: 18, fit: [18.6, 8.4] },
-  light: { target: new THREE.Vector3(0, -0.3, 0.2), dir: new THREE.Vector3(-13, 15, 25), fov: 20, fit: [19, 10.8] },
+  // From high up, as the product photos are: the light shows in the gaps between the caps.
+  light: { target: new THREE.Vector3(0, -0.3, 0.2), dir: new THREE.Vector3(-9, 26, 17), fov: 20, fit: [19.6, 13.4] },
+  // Straight from above, so painting reaches every key alike.
+  paint: { target: new THREE.Vector3(0, 0, 0.1), dir: new THREE.Vector3(0, 30, 1.5), fov: 18, fit: [18.6, 8.4] },
   system: { target: new THREE.Vector3(0, -0.4, 0), dir: new THREE.Vector3(19, 7.5, 19), fov: 19, fit: [19, 8.5] },
 };
 const TRANSITION_S = 1;
@@ -53,21 +63,6 @@ interface CameraState {
   target: THREE.Vector3;
   sph: THREE.Spherical;
   fov: number;
-}
-
-function roundedRect(w: number, h: number, r: number) {
-  const s = new THREE.Shape();
-  const x = -w / 2, y = -h / 2;
-  s.moveTo(x + r, y);
-  s.lineTo(x + w - r, y);
-  s.quadraticCurveTo(x + w, y, x + w, y + r);
-  s.lineTo(x + w, y + h - r);
-  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  s.lineTo(x + r, y + h);
-  s.quadraticCurveTo(x, y + h, x, y + h - r);
-  s.lineTo(x, y + r);
-  s.quadraticCurveTo(x, y, x + r, y);
-  return s;
 }
 
 const capGeometries = new Map<number, THREE.BufferGeometry>();
@@ -88,6 +83,52 @@ function capGeometry(w: number) {
   capGeometries.set(w, g);
   return g;
 }
+
+/**
+ * A thin flat frame around the cap's foot: the line of LED light that outlines each key where it
+ * meets the switch, the way the real board looks lit. Brightest at the cap, fading outwards.
+ */
+function rimGeometry(w: number) {
+  const iw = (w - GAP) / 2;
+  const id = (1 - GAP) / 2;
+  const ow = iw + RIM;
+  const od = id + RIM;
+  // Eight points: the inner rectangle, then the outer one; four quads between them.
+  const inner = [[-iw, -id], [iw, -id], [iw, id], [-iw, id]];
+  const outer = [[-ow, -od], [ow, -od], [ow, od], [-ow, od]];
+  const position = [...inner, ...outer].flatMap(([x, z]) => [x, -KEY_H / 2 + 0.01, z]);
+  const colour = [...inner.map(() => [1, 1, 1]), ...outer.map(() => [0, 0, 0])].flat();
+  const index = [0, 1, 2, 3].flatMap((i) => {
+    const j = (i + 1) % 4;
+    return [i, 4 + i, j, j, 4 + i, 4 + j];
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(position, 3));
+  g.setAttribute("color", new THREE.Float32BufferAttribute(colour, 3));
+  g.setIndex(index);
+  return g;
+}
+const RIM = 0.07;
+
+/** Light on the plate: flat under the key, fading over the gap so neighbours blend. */
+function poolTexture() {
+  const c = Object.assign(document.createElement("canvas"), { width: 64, height: 64 });
+  const ctx = c.getContext("2d")!;
+  const img = ctx.createImageData(64, 64);
+  for (let y = 0; y < 64; y++)
+    for (let x = 0; x < 64; x++) {
+      // A rounded square: full inside 60% of the plane, smooth to nothing at the edge.
+      const d = Math.max(Math.abs(x - 31.5), Math.abs(y - 31.5)) / 32;
+      const v = Math.round(255 * THREE.MathUtils.smoothstep(1 - d, 0, 0.4));
+      img.data.set([v, v, v, 255], (y * 64 + x) * 4);
+    }
+  ctx.putImageData(img, 0, 0);
+  return new THREE.CanvasTexture(c);
+}
+/** How far a key's light reaches past its footprint, in board units. */
+const SPREAD = 0.35;
+/** How long an LED takes to change colour, in seconds. */
+const FADE_S = 0.03;
 
 const ATLAS_W = 2048;
 interface Cell {
@@ -129,6 +170,7 @@ function paintLegend(ctx: CanvasRenderingContext2D, cell: Cell, text: string, di
 interface KeyParts {
   pos: number;
   caps: THREE.InstancedMesh;
+  skirt: THREE.InstancedMesh;
   index: number;
   slot: number;
   x: number;
@@ -149,140 +191,8 @@ interface KeyParts {
   s: number;
 }
 
-type Effect =
-  | "static" | "breathe" | "neon" | "wave" | "ripple" | "raindrop" | "snake" | "reactive" | "converge" | "sine"
-  | "kaleido" | "lines" | "laser" | "circle" | "rainbow" | "rain" | "meteor" | "reactiveOff" | "train" | "fireworks";
-const EFFECT_OF: Record<number, Effect> = {
-  1: "static", 2: "breathe", 3: "neon", 4: "wave", 5: "ripple", 6: "raindrop", 7: "snake", 8: "reactive", 9: "converge",
-  10: "sine", 11: "kaleido", 12: "lines", 14: "laser", 15: "circle", 16: "rainbow", 17: "rain", 18: "meteor",
-  19: "reactiveOff", 23: "train", 24: "fireworks",
-};
-const SIDE_EFFECT_OF: Record<number, Effect> = { 1: "static", 2: "breathe", 3: "neon", 4: "wave", 5: "snake" };
 const WAKE_S = 1.1;
 const tmp = new THREE.Color();
-const frac = (x: number) => x - Math.floor(x);
-const hash = (n: number) => frac(Math.sin(n * 12.9898 + 78.233) * 43758.5453);
-
-interface LightPoint {
-  u: number;
-  v: number;
-  row: number;
-  s: number;
-  seed: number;
-}
-
-function lightAt(l: LightSetting, effect: Effect, p: LightPoint, t: number, out: THREE.Color): number {
-  const sp = 0.35 + l.speed * 0.4;
-  const { u, v, row, s, seed } = p;
-  const d = Math.hypot(u - 0.5, (v - 0.5) * 0.45);
-  let hue = u * 0.85;
-  let amount = 1;
-  let ownHue = false;
-  switch (effect) {
-    case "breathe":
-      amount = 0.1 + 0.9 * (0.5 - 0.5 * Math.cos(t * sp * 2.2));
-      break;
-    case "neon":
-      hue = t * sp * 0.08;
-      ownHue = true;
-      break;
-    case "wave": {
-      const phase = u - t * sp * 0.35;
-      hue = phase;
-      if (!l.rainbow) amount = 0.15 + 0.85 * (0.5 + 0.5 * Math.sin(phase * Math.PI * 2 * 1.3));
-      break;
-    }
-    case "ripple":
-      hue = d * 1.6 - t * sp * 0.3;
-      amount = 0.12 + 0.88 * Math.pow(0.5 + 0.5 * Math.cos((d * 4 - t * sp * 0.9) * Math.PI * 2), 3);
-      break;
-    case "raindrop":
-    case "reactive":
-    case "reactiveOff": {
-      const clock = t * sp * (effect === "raindrop" ? 0.5 : 0.7) + hash(seed) * 20;
-      const event = Math.floor(clock);
-      const on = hash(seed * 7.1 + event) < (effect === "raindrop" ? 0.14 : 0.07);
-      const fade = on ? Math.pow(1 - frac(clock), effect === "raindrop" ? 1.5 : 2.5) : 0;
-      amount = effect === "reactiveOff" ? 1 - fade : fade;
-      hue = hash(seed + event * 3.3);
-      break;
-    }
-    case "snake": {
-      const dist = frac(t * sp * 0.07 - s);
-      amount = dist < 0.07 ? 1 - dist / 0.07 : 0;
-      hue = s * 3;
-      break;
-    }
-    case "converge": {
-      const head = 1 - frac(t * sp * 0.3);
-      amount = Math.max(0, 1 - Math.abs(Math.abs(u - 0.5) * 2 - head) * 5);
-      hue = head;
-      break;
-    }
-    case "sine": {
-      const target = 0.5 + 0.38 * Math.sin(u * Math.PI * 2 * 1.2 - t * sp * 1.6);
-      amount = Math.max(0, 1 - Math.abs(v - target) * 4.5);
-      hue = u - t * 0.1;
-      break;
-    }
-    case "kaleido":
-      hue = Math.atan2((v - 0.5) * 0.45, u - 0.5) / (Math.PI * 2) + t * sp * 0.15 + d;
-      ownHue = true;
-      break;
-    case "lines": {
-      const clock = t * sp * 1.2;
-      const lit = Math.floor(clock) % 6;
-      amount = row === lit ? 1 : row === (lit + 5) % 6 ? (1 - frac(clock)) * 0.6 : 0.04;
-      hue = row / 6;
-      break;
-    }
-    case "laser": {
-      const x = 1 - Math.abs(1 - 2 * frac(t * sp * 0.18));
-      amount = Math.max(0, 1 - Math.abs(u - x) * 10);
-      hue = x;
-      break;
-    }
-    case "circle":
-      amount = 0.08 + 0.92 * Math.pow(0.5 + 0.5 * Math.cos((d * 5 - t * sp * 1.2) * Math.PI * 2), 4);
-      hue = d * 2 - t * 0.2;
-      break;
-    case "rainbow":
-      hue = u + v * 0.3 - t * sp * 0.12;
-      ownHue = true;
-      break;
-    case "rain": {
-      const col = Math.round(u * 16);
-      const head = frac(t * sp * 0.35 + hash(col) * 5) * 1.4;
-      const dist = head - v;
-      amount = dist > 0 && dist < 0.4 ? 1 - dist / 0.4 : 0;
-      hue = hash(col + 9);
-      break;
-    }
-    case "meteor": {
-      const head = frac(t * sp * 0.25 + hash(row + 2) * 3) * 1.5;
-      const dist = head - u;
-      amount = dist > 0 && dist < 0.4 ? Math.pow(1 - dist / 0.4, 2) : 0;
-      hue = u;
-      break;
-    }
-    case "train":
-      amount = frac(u * 2.5 - t * sp * 0.4 + row * 0.17) < 0.35 ? 1 : 0.04;
-      hue = row / 6;
-      break;
-    case "fireworks": {
-      const clock = t * sp * 0.4;
-      const burst = Math.floor(clock);
-      const phase = frac(clock);
-      const dist = Math.hypot(u - (0.1 + hash(burst) * 0.8), (v - (0.1 + hash(burst + 3) * 0.8)) * 0.45);
-      amount = Math.max(0, 1 - Math.abs(dist - phase * 0.45) * 14) * (1 - phase);
-      hue = hash(burst + 5);
-      break;
-    }
-  }
-  if (l.rainbow || ownHue) out.setHSL(frac(hue), 0.85, 0.55);
-  else out.setRGB(l.rgb.r / 255, l.rgb.g / 255, l.rgb.b / 255, THREE.SRGBColorSpace);
-  return amount * (l.brightness / 4);
-}
 
 class BoardScene {
   renderer: THREE.WebGLRenderer;
@@ -290,6 +200,9 @@ class BoardScene {
   camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
   keys = new Map<number, KeyParts>();
   capMeshes: THREE.InstancedMesh[] = [];
+  skirts: THREE.InstancedMesh[] = [];
+  /** The switch housings, clear plastic lit by the LED under them: the light seen between rows. */
+  switchGlow!: THREE.InstancedMesh;
   switches!: THREE.InstancedMesh;
   glows!: THREE.InstancedMesh;
   legends!: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
@@ -311,10 +224,11 @@ class BoardScene {
   pointer = { x: 0, y: 0, nx: 0, ny: 0 };
   selected: number | null = null;
   legendTarget = 1;
-  strip!: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
-  stripU!: Float32Array;
   light?: LightSetting;
-  sideLight?: LightSetting;
+  /** Colours by matrix slot, shown in the per-key mode. */
+  perKey?: Rgb[];
+  /** While painting, the camera stops following the pointer. */
+  painting = false;
   legendOpacity = 1;
   screenTexture: THREE.CanvasTexture;
   private raf = 0;
@@ -323,6 +237,7 @@ class BoardScene {
   constructor(host: HTMLElement, screen: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "low-power" });
     const r = this.renderer;
+    r.localClippingEnabled = true;
     this.pixelRatio = Math.min(1.5, window.devicePixelRatio);
     r.setPixelRatio(this.pixelRatio);
     // AgX keeps the white and grey caps neutral instead of tinting them.
@@ -354,20 +269,6 @@ class BoardScene {
     body.position.y = -0.45;
     this.pivot.add(body);
 
-    // A ring rather than a thin rounded box, whose square corners stuck out past the case.
-    const ring = roundedRect(W + 0.03, D + 0.03, 0.46);
-    ring.holes.push(roundedRect(W - 0.12, D - 0.12, 0.38));
-    const stripGeo = new THREE.ExtrudeGeometry(ring, { depth: 0.07, bevelEnabled: false, curveSegments: 16 });
-    stripGeo.rotateX(-Math.PI / 2);
-    stripGeo.translate(0, -0.035, 0);
-    const count = stripGeo.attributes.position.count;
-    stripGeo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(count * 3), 3));
-    this.strip = new THREE.Mesh(stripGeo, new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }));
-    this.strip.position.y = -0.5;
-    this.pivot.add(this.strip);
-    const sp = stripGeo.attributes.position;
-    this.stripU = new Float32Array(count);
-    for (let i = 0; i < count; i++) this.stripU[i] = frac(Math.atan2(sp.getZ(i) / D, sp.getX(i) / W) / (Math.PI * 2) + 0.5);
     const plate = new THREE.Mesh(new THREE.BoxGeometry(BOARD_UNITS + 0.1, 0.02, DEPTH + 0.1), new THREE.MeshStandardMaterial({ color: 0x08090a, roughness: 0.9 }));
     plate.position.y = 0.005;
     this.pivot.add(plate);
@@ -381,20 +282,49 @@ class BoardScene {
     const byWidth = new Map<number, typeof X85_KEYS>();
     for (const k of X85_KEYS) byWidth.set(k.w, [...(byWidth.get(k.w) ?? []), k]);
     const capMesh = new Map<number, THREE.InstancedMesh>();
+    const skirtMesh = new Map<number, THREE.InstancedMesh>();
+    const skirtMat = new THREE.MeshBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
     for (const [w, ks] of byWidth) {
       const mesh = new THREE.InstancedMesh(capGeometry(w), capMat, ks.length);
       mesh.userData.posAt = ks.map((k) => k.pos);
       this.capMeshes.push(mesh);
       capMesh.set(w, mesh);
-      this.pivot.add(mesh);
+      const skirt = new THREE.InstancedMesh(rimGeometry(w), skirtMat, ks.length);
+      skirt.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(ks.length * 3), 3);
+      this.skirts.push(skirt);
+      skirtMesh.set(w, skirt);
+      this.pivot.add(mesh, skirt);
     }
     this.switches = new THREE.InstancedMesh(switchGeo, switchMat, n);
+    // The light on the plate shows only in the gaps between caps, as on the real board. Each key's
+    // spreads a little past its footprint so neighbours blend, but never past the plate.
+    const pool = poolTexture();
+    this.disposers.push(() => pool.dispose());
+    const halfW = (BOARD_UNITS + 0.1) / 2;
+    const halfD = (DEPTH + 0.1) / 2;
     this.glows = new THREE.InstancedMesh(
-      new THREE.PlaneGeometry(1, 1 + GAP),
+      new THREE.PlaneGeometry(1, 1 + GAP + 2 * SPREAD),
+      new THREE.MeshBasicMaterial({
+        map: pool,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthWrite: false,
+        toneMapped: false,
+        clippingPlanes: [
+          new THREE.Plane(new THREE.Vector3(1, 0, 0), halfW),
+          new THREE.Plane(new THREE.Vector3(-1, 0, 0), halfW),
+          new THREE.Plane(new THREE.Vector3(0, 0, 1), halfD),
+          new THREE.Plane(new THREE.Vector3(0, 0, -1), halfD),
+        ],
+      }),
+      n,
+    );
+    this.switchGlow = new THREE.InstancedMesh(
+      switchGeo.clone().scale(1.02, 1.02, 1.02),
       new THREE.MeshBasicMaterial({ color: 0xffffff, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false }),
       n,
     );
-    this.pivot.add(this.switches, this.glows);
+    this.pivot.add(this.switches, this.glows, this.switchGlow);
 
     const { cells, height } = packCells(X85_KEYS.map((k) => k.w));
     this.cells = cells;
@@ -429,22 +359,21 @@ class BoardScene {
       counts.set(k.w, i + 1);
       const rest = KEY_H / 2 + 0.2 + ROW_RISE[k.y];
       const parts: KeyParts = {
-        pos: k.pos, caps, index: i, slot, x: p.x, z: p.z, y: rest, rest, tilt: ROW_TILT[k.y],
+        pos: k.pos, caps, skirt: skirtMesh.get(k.w)!, index: i, slot, x: p.x, z: p.z, y: rest, rest, tilt: ROW_TILT[k.y],
         legendW: (k.w - GAP - (1 - GAP) * (1 - TOP_SCALE)) * 0.92, legendH: (1 - GAP) * TOP_SCALE * 0.92,
         base: new THREE.Color(ROW_CAP[k.y]), ink: ROW_INK[k.y], edited: false,
-        u: (k.x + k.w / 2) / BOARD_UNITS, v: (k.y + 0.5) / BOARD_ROWS, seed: k.pos + 1, row: k.y, s: 0,
+        ...LIGHT_POINTS.get(k.pos)!,
       };
       this.keys.set(k.pos, parts);
       caps.setColorAt(i, parts.base);
       this.placeKey(parts);
       this.switches.setMatrixAt(slot, new THREE.Matrix4().makeTranslation(p.x, 0.12, p.z));
-      const m = new THREE.Matrix4().compose(new THREE.Vector3(p.x, 0.02, p.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2), new THREE.Vector3(k.w + GAP, 1, 1));
+      this.switchGlow.setMatrixAt(slot, new THREE.Matrix4().makeTranslation(p.x, 0.12, p.z));
+      this.switchGlow.setColorAt(slot, new THREE.Color(0, 0, 0));
+      const m = new THREE.Matrix4().compose(new THREE.Vector3(p.x, 0.02, p.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2), new THREE.Vector3(k.w + GAP + 2 * SPREAD, 1, 1));
       this.glows.setMatrixAt(slot, m);
       this.glows.setColorAt(slot, new THREE.Color(0, 0, 0));
     });
-
-    const path = [...this.keys.values()].sort((a, b) => a.row - b.row || (a.row % 2 ? b.u - a.u : a.u - b.u));
-    path.forEach((k, i) => (k.s = i / path.length));
 
     const lightGeo = new THREE.CylinderGeometry(0.026, 0.026, 0.02, 16);
     const lightMat = new THREE.MeshStandardMaterial({ color: 0xd9dbde, roughness: 0.35 });
@@ -508,22 +437,22 @@ class BoardScene {
     this.pivot.add(dongle);
 
     const sAt = at(SCREEN_SLOT.x, 1, SCREEN_SLOT.y);
-    const bezel = new THREE.Mesh(new RoundedBoxGeometry(1 - GAP, 0.62, 1 - GAP, 4, 0.08), new THREE.MeshStandardMaterial({ color: 0x08090a, roughness: 0.28, metalness: 0.2 }));
-    bezel.position.set(sAt.x, 0.31, sAt.z);
+    const bezel = new THREE.Mesh(new RoundedBoxGeometry(1 - GAP, SCREEN_H, 1 - GAP, 3, 0.04), new THREE.MeshStandardMaterial({ color: 0x08090a, roughness: 0.28, metalness: 0.2 }));
+    bezel.position.set(sAt.x, SCREEN_H / 2, sAt.z);
     this.pivot.add(bezel);
     this.screenTexture = new THREE.CanvasTexture(screen);
     this.screenTexture.colorSpace = THREE.SRGBColorSpace;
     this.screenTexture.magFilter = THREE.LinearFilter;
     const display = new THREE.Mesh(new THREE.PlaneGeometry(0.76, 0.76), new THREE.MeshBasicMaterial({ map: this.screenTexture, toneMapped: false }));
     display.rotation.x = -Math.PI / 2;
-    display.position.set(sAt.x, 0.622, sAt.z);
+    display.position.set(sAt.x, SCREEN_H + 0.002, sAt.z);
     this.pivot.add(display);
     const glass = new THREE.Mesh(
       new THREE.PlaneGeometry(0.82, 0.82),
       new THREE.MeshStandardMaterial({ color: 0x000000, metalness: 1, roughness: 0.06, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }),
     );
     glass.rotation.x = -Math.PI / 2;
-    glass.position.set(sAt.x, 0.626, sAt.z);
+    glass.position.set(sAt.x, SCREEN_H + 0.006, sAt.z);
     this.pivot.add(glass);
 
     // A painted shadow: real-time shadow maps cost more than the whole scene on slow GPUs.
@@ -604,6 +533,8 @@ class BoardScene {
     const m = new THREE.Matrix4().compose(new THREE.Vector3(k.x, k.y, k.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), k.tilt), new THREE.Vector3(1, 1, 1));
     k.caps.setMatrixAt(k.index, m);
     k.caps.instanceMatrix.needsUpdate = true;
+    k.skirt.setMatrixAt(k.index, m);
+    k.skirt.instanceMatrix.needsUpdate = true;
     const pos = this.legends.geometry.attributes.position as THREE.BufferAttribute;
     const nor = this.legends.geometry.attributes.normal as THREE.BufferAttribute;
     const hw = k.legendW / 2, hh = k.legendH / 2, top = KEY_H / 2 + 0.004;
@@ -647,24 +578,52 @@ class BoardScene {
 
   private wakeColor(u: number, out: THREE.Color) {
     const l = this.wakeLight;
-    if (l?.rainbow) out.setHSL(u * 0.85, 0.85, 0.55);
+    if (l?.rainbow) out.setHSL(u * 0.85, 1, 0.5);
     else if (l && l.mode !== 0) out.setRGB(l.rgb.r / 255, l.rgb.g / 255, l.rgb.b / 255);
     else out.setRGB(0.9, 0.96, 0.97);
   }
 
-  setLighting(main?: LightSetting, side?: LightSetting) {
-    this.light = main;
-    this.sideLight = side;
+  /** The studio effect mode 25 plays, and its loop (planned once per effect). */
+  private studio?: { effect: StudioEffect; plan: LoopPlan };
+
+  setLighting(light?: LightSetting, perKey?: Rgb[], studio?: StudioEffect) {
+    this.light = light;
+    this.perKey = perKey;
+    if (studio !== this.studio?.effect) this.studio = studio && { effect: studio, plan: planLoop(studio) };
     this.dirty = true;
   }
 
+  /** Each key's shown light (colour × amount), easing towards the effect's. */
+  private shown = new Map<number, THREE.Color>();
+  private lastLightT = 0;
+  /** Some key is still easing, so frames must keep coming after the light stops. */
+  private fading = false;
+
   private updateLight(t: number) {
+    const dt = Math.max(0, Math.min(0.1, t - this.lastLightT));
+    this.lastLightT = t;
+    // No easing without motion (reduced motion passes t = 0) or on the first frame.
+    const ease = dt > 0 ? 1 - Math.exp(-dt / FADE_S) : 1;
+    this.fading = false;
     const l = this.light;
-    const effect = l && l.mode !== 0 ? EFFECT_OF[l.mode] ?? "static" : null;
+    const effect = l ? effectFor(l.mode) : undefined;
+    // Mode 25 plays the stored animation: the studio's colours when Dorsal knows the effect,
+    // otherwise every key dimly lit, since the keyboard cannot say what it holds.
+    const studio = l?.mode === ANIMATION_MODE ? this.studio : undefined;
+    const perKey = l?.mode === PER_KEY_MODE ? this.perKey : studio ? studioColours(studio.effect, studio.plan, t) : undefined;
+    const unknown = l?.mode === ANIMATION_MODE && !studio;
     const cap = new THREE.Color();
     const wave = this.wakePhase(performance.now());
     for (const k of this.keys.values()) {
-      let amount = l && effect ? lightAt(l, effect, k, t, tmp) : 0;
+      let amount = 0;
+      if (perKey) {
+        const c = perKey[k.pos] ?? { r: 0, g: 0, b: 0 };
+        tmp.setRGB(c.r / 255, c.g / 255, c.b / 255, THREE.SRGBColorSpace);
+        amount = c.r || c.g || c.b ? l!.brightness / 4 : 0;
+      } else if (unknown) {
+        tmp.setRGB(1, 1, 1);
+        amount = 0.25 * (l!.brightness / 4);
+      } else if (l && effect) amount = lightAt(l, effect, k, t, tmp);
       if (wave !== null) {
         const w = Math.exp(-(((wave - k.u) / 0.09) ** 2));
         if (w > amount) {
@@ -672,22 +631,20 @@ class BoardScene {
           this.wakeColor(k.u, tmp);
         }
       }
-      this.glows.setColorAt(k.slot, cap.copy(tmp).multiplyScalar(amount > 0.001 ? 0.1 + 0.45 * amount : 0));
-      k.caps.setColorAt(k.index, cap.copy(k.base).lerp(tmp, amount > 0.001 ? 0.12 * amount : 0));
+      const target = cap.copy(tmp).multiplyScalar(amount > 0.001 ? amount : 0);
+      const shown = this.shown.get(k.pos) ?? this.shown.set(k.pos, target.clone()).get(k.pos)!;
+      shown.lerp(target, ease);
+      if (Math.abs(shown.r - target.r) + Math.abs(shown.g - target.g) + Math.abs(shown.b - target.b) > 0.003) this.fading = true;
+      else shown.copy(target);
+      // The caps keep their own colour (the legends do not shine through); the light is the plate
+      // between them and a thin line at each cap's foot.
+      this.glows.setColorAt(k.slot, cap.copy(shown).multiplyScalar(0.4));
+      this.switchGlow.setColorAt(k.slot, cap.copy(shown).multiplyScalar(0.9));
+      k.skirt.setColorAt(k.index, cap.copy(shown).multiplyScalar(1.6));
     }
+    this.switchGlow.instanceColor!.needsUpdate = true;
     this.glows.instanceColor!.needsUpdate = true;
-    for (const m of this.capMeshes) m.instanceColor!.needsUpdate = true;
-
-    const s = this.sideLight;
-    const sideEffect = s && s.mode !== 0 ? SIDE_EFFECT_OF[s.mode] ?? "static" : null;
-    const colors = this.strip.geometry.attributes.color as THREE.BufferAttribute;
-    for (let i = 0; i < colors.count; i++) {
-      const u = this.stripU[i];
-      const amount = s && sideEffect ? lightAt(s, sideEffect, { u, v: 0.5, row: 0, s: u, seed: i }, t, tmp) : 0;
-      if (amount <= 0) colors.setXYZ(i, 0.02, 0.02, 0.025);
-      else colors.setXYZ(i, tmp.r * (0.15 + amount), tmp.g * (0.15 + amount), tmp.b * (0.15 + amount));
-    }
-    colors.needsUpdate = true;
+    for (const m of [...this.capMeshes, ...this.skirts]) m.instanceColor!.needsUpdate = true;
   }
 
   pick(clientX: number, clientY: number): number | null {
@@ -796,7 +753,7 @@ class BoardScene {
   private slowFrames = 0;
 
   private lightAnimating() {
-    return this.wakeStart !== null || (!!this.light && this.light.mode !== 0) || (!!this.sideLight && this.sideLight.mode !== 0);
+    return this.wakeStart !== null || this.fading || (!!this.light && this.light.mode !== 0);
   }
 
   /** Drops the resolution when frames take too long, so motion stays smooth on slow machines. */
@@ -835,7 +792,10 @@ export interface Board3DProps {
   /** Changes whenever `face` would return something different. */
   faceKey: string;
   light?: LightSetting;
-  sideLight?: LightSetting;
+  /** The design shown when `light` is in the per-key mode, by matrix slot. */
+  perKey?: Rgb[];
+  /** The studio effect shown when `light` is in the animation mode. */
+  studio?: StudioEffect;
   /** Plays the wake wave when this turns true, in the colour of `wakeLight`. */
   ready?: boolean;
   wakeLight?: LightSetting;
@@ -843,6 +803,8 @@ export interface Board3DProps {
   selected?: number | null;
   legends?: boolean;
   onKey?: (pos: number) => void;
+  /** Turns the board into a canvas: pointer down and drag call this for each key under the pointer. */
+  onPaint?: (pos: number) => void;
   className?: string;
   children?: ReactNode;
   fallback: ReactNode;
@@ -875,7 +837,7 @@ export function Board3D(props: Board3DProps) {
     s.legends.visible = s.legendOpacity > 0.01;
     void document.fonts.ready.then(() => s.setFaces(latest.current.face));
     s.setFaces(p.face);
-    s.setLighting(p.light, p.sideLight);
+    s.setLighting(p.light, p.perKey, p.studio);
     s.onFrame = () => {
       if (latest.current.tftPx) latest.current.tftPx.current = s.tftPx;
     };
@@ -885,15 +847,36 @@ export function Board3D(props: Board3DProps) {
       if (r.width && r.height) s.resize(r.width, r.height);
     });
     ro.observe(el);
+    let lastPainted: number | null = null;
+    const paint = (e: PointerEvent) => {
+      const pos = s.pick(e.clientX, e.clientY);
+      if (pos !== null && pos !== lastPainted) latest.current.onPaint?.(pos);
+      lastPainted = pos;
+    };
     const move = (e: PointerEvent) => {
+      if (s.painting) return paint(e);
       const r = el.getBoundingClientRect();
       s.pointer.nx = ((e.clientX - r.left) / r.width - 0.5) * 2;
       s.pointer.ny = ((e.clientY - r.top) / r.height - 0.5) * 2;
     };
     const leave = () => (s.pointer.nx = s.pointer.ny = 0);
     let down: { x: number; y: number } | null = null;
-    const pdown = (e: PointerEvent) => (down = { x: e.clientX, y: e.clientY });
+    const pdown = (e: PointerEvent) => {
+      if (latest.current.onPaint) {
+        // Paint mode: the board holds still and every key under the pointer takes the brush.
+        s.painting = true;
+        s.pointer.nx = s.pointer.ny = 0;
+        el.setPointerCapture(e.pointerId);
+        lastPainted = null;
+        return paint(e);
+      }
+      down = { x: e.clientX, y: e.clientY };
+    };
     const pup = (e: PointerEvent) => {
+      if (s.painting) {
+        s.painting = false;
+        return;
+      }
       if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return;
       down = null;
       const pos = s.pick(e.clientX, e.clientY);
@@ -919,7 +902,7 @@ export function Board3D(props: Board3DProps) {
   useEffect(() => scene.current?.setFaces(latest.current.face), [props.faceKey]);
   useEffect(() => scene.current?.setSelected(props.selected ?? null), [props.selected]);
   useEffect(() => scene.current?.setLegendsVisible(props.legends ?? true), [props.legends]);
-  useEffect(() => scene.current?.setLighting(props.light, props.sideLight), [props.light, props.sideLight]);
+  useEffect(() => scene.current?.setLighting(props.light, props.perKey, props.studio), [props.light, props.perKey, props.studio]);
   const wasReady = useRef(props.ready);
   useEffect(() => {
     if (scene.current) scene.current.wakeLight = props.wakeLight;
