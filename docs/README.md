@@ -10,3 +10,4 @@ Dorsal is an open configurator for the Attack Shark X85 Pro, served at **[dorsal
 | [Dorsal Screen](dorsal-screen.md) | The mini app that only edits the keyboard's TFT |
 | [Troubleshooting](troubleshooting.md) | The keyboard is not found, uploads stall, the 3D is slow, and other known problems |
 | [Protocol](protocol.md) | The keyboard's HID protocol, command by command |
+| [Roadmap](roadmap.md) | What comes next: music, the background app and profiles |

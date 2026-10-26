@@ -26,7 +26,7 @@ Then unplug and replug the keyboard.
 | `npm run dev` | Development server at `http://localhost:5173` |
 | `npm run build` | Type check and build into `dist/` (also writes `robots.txt` and `sitemap.xml`) |
 | `npm run preview` | Serve the build locally |
-| `npm test` | Vitest: protocol, layout, factory key map and screen conversion |
+| `npm test` | Vitest: protocol, layout, factory key map, screen conversion, lighting, the effect studio and backups |
 | `npm run typecheck` | Type check only |
 | `npm run electron` | Build and open the configurator in an Electron window |
 | `npm run appimage` | `release/Dorsal-<version>.AppImage` |
@@ -70,10 +70,14 @@ The tests run against answers captured from the keyboard (`tests/fixtures/`):
 - **Layout**: the 81 keys on real matrix slots, without overlaps, with the TFT above the right arrow.
 - **Factory map**: the right column (Home, PgUp, PgDn) and the three remaps on the captured keyboard.
 - **Screen**: framing defaults, RGB565 conversion, the bounding box and the upload chunks.
+- **Lighting**: each effect's direction and timing in the preview, and per-key painting.
+- **Effect studio**: layers, the seamless loop, the upload, saved effects and their checks.
+- **Backup**: reading, checking and restoring a backup file.
 
 ## Conventions
 
-- **Text**: every visible string goes through `tr("pt", "en")`. Names from the protocol tables go through `labelIn` / `keyName` in `src/i18n/labels.ts`; add the English name there when you add a function or effect.
+- **Text**: every visible string goes through `tr("pt", "en")`. Key function names go through `labelIn` / `keyName` in `src/i18n/labels.ts`; add the English name there when you add a function. Light effects carry both names in `src/protocol/effects.ts`.
 - **Components**: UI components come from [beUI](https://beui.dev) through the shadcn CLI (`npx shadcn@latest add @beui/<name>`). Answer *no* when it offers to overwrite files that already exist, and pin new dependencies to exact versions in `package.json`.
 - **Name and logo**: `src/brand/`.
+- **Agents**: [`AGENTS.md`](../AGENTS.md) has the rules for coding agents.
 - **Writes to the keyboard**: test them first in demo mode, then with dry run on (developer mode), and only then for real.

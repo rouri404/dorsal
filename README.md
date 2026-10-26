@@ -37,7 +37,7 @@ The X85 Pro is officially configured through **qmk.top**, a website that talks t
 
 - **TFT screen:** sends images and GIFs of up to 60 frames (128 × 128, RGB565), framed by dragging and zooming, and sets the keyboard's clock. Uploads keep going with the window in the background.
 - **Keys:** remaps the normal layer and the layer while holding Fn, plus the knob (press and turn). Changed keys stand out, with a way back to factory defaults.
-- **Lighting:** the 21 key effects and the 5 side-light effects, with colour, brightness and speed, animated on the 3D model before you apply them.
+- **Lighting:** the 21 key effects with their options (direction, design), colour, brightness and speed, animated on the 3D model as the keyboard runs them; per-key colours painted on the board, in five designs; and an effect studio: waves at any angle or from a key, solid colours, painted keys and the keyboard's own effects, layered over areas of keys and stored on the keyboard, which plays them on its own.
 - **System:** polling rate (125 to 8000 Hz), debounce, sleep and deep sleep on 2.4G and Bluetooth, JSON backup and restore, and factory reset.
 - **3D keyboard:** a model faithful to the product (gradient keycaps, knob, live TFT), with a camera that moves to whatever each section edits.
 - **Two languages:** Portuguese and English, key, function and effect names included.
@@ -63,13 +63,14 @@ Only want to change the picture on the keyboard? **Dorsal Screen** is a small wi
 | [Deployment](docs/deployment.md) | Publishing on `dorsal.cotoo.dev` and distributing the AppImages |
 | [Dorsal Screen](docs/dorsal-screen.md) | The mini app for the TFT |
 | [Troubleshooting](docs/troubleshooting.md) | Keyboard not found, stalled uploads, slow 3D |
+| [Roadmap](docs/roadmap.md) | Faithful lighting and the effect studio (done), music, the tray app and profiles, in that order |
 
 The protocol is documented in [`docs/protocol.md`](docs/protocol.md), with reads and writes confirmed on the real keyboard.
 
 **Main topics:**
 - **Identification**: USB IDs, configuration interface and firmware ID.
 - **Framing**: the feature report format and both checksum types.
-- **Commands**: polling, profile, debounce, lighting, side light, key matrix, Fn layer and sleep.
+- **Commands**: polling, profile, debounce, lighting, per-key colours, key matrix, Fn layer and sleep.
 - **Screen**: handshake, upload in chunks and pixel format.
 
 

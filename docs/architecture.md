@@ -43,6 +43,7 @@ Navigation uses the History API. Switching language crossfades with the View Tra
 - **Snapshot**: on connect, every setting is read once (key maps, lights, polling, debounce, sleep, screen info, profile, power saving) and cached. The UI reads the cache; writes update it. The mini app reads nothing (`parts={[]}`).
 - **Actions**: `useAction` runs a write and reports a short status.
 - **Backups** (`src/backup.ts`): restoring reads the keyboard fresh, compares it with the file and lists what will change before writing only the differences. A backup from another keyboard (firmware ID) is refused, and malformed parts of a file are left out.
+- **Effect studio** (`src/studio/`): an effect is a stack of layers over areas of keys (`effect.ts`, where `colourAt` gives a key's colour at a time, from the bottom layer up). A paint layer holds a colour per key, painted with the per-key tools (`paintLayer` in `src/app/paint.ts`), and is see-through where unpainted. An effect layer runs one of the keyboard's effects through the preview's `lightAt`, on the same light points (`LIGHT_POINTS`), and the light it gives is how much of it shows over the layers below. `render.ts` plans one seamless loop (1–13 s, up to 100 frames: past that the keyboard plays leftovers of earlier uploads; each effect's period comes from `motionPeriod`, and one that never repeats gets 8 s and fades into the start) and renders it with the same `colourAt` the 3D preview uses; `apply.ts` uploads it with `0x12` and only then switches to mode 25. The keyboard cannot read its animation back, so the saved effects and the one stored on the keyboard are kept in `localStorage` (`store.ts`) and travel in the backup file; restoring adds the missing ones and uploads nothing.
 - **Dry run and log**: in developer mode, writes are logged instead of sent, and the last 400 packets are kept for the Log section.
 - **Demo mode**: `?demo` swaps the transport for `src/demo/DemoTransport.ts`, which answers with a capture of a real X85 Pro.
 
@@ -78,11 +79,11 @@ With nothing chosen, the TFT preview shows the last image sent (kept in `localSt
 - **Cost**: caps are instanced by width, switches and glows are one instanced mesh each, and every legend sits in one merged mesh over a texture atlas: about 20 draw calls instead of 300. There are no real-time shadow maps; the contact shadow is painted once.
 - **Rendering on demand**: frames are drawn only while something moves (camera, pointer, light effects, a key lifting), and a few times a second otherwise for the TFT clock. The pixel ratio drops when frames take longer than 40 ms.
 - **Camera**: each section has a framing (target, direction, lens, and the area that must fit). The distance follows from the stage's aspect, so the subject stays centred in any window. Changing section orbits the camera in 1.1 s, easing in and out.
-- **Lighting preview**: each of the 21 key effects and 5 side-light effects has its own motion (`lightAt`), coloured per key and along a LED ring that follows the case outline.
+- **Lighting preview**: each of the 21 key effects has its own motion (`lightAt` in `src/app/lightFx.ts`), timed against a video of the keyboard (see [`protocol.md`](protocol.md#how-each-effect-moves)). Light shows only in the gaps: a soft pool on the plate under each key, the lit switch and a thin rim at the cap's foot. Each LED eases to its colour over 30 ms. Per-key colours are painted from a top-down view (`src/app/paint.ts`), and so are a studio layer's area and centre. In mode 25 the board plays the studio effect Dorsal stored; when it does not know it, the keys are dimly lit.
 
 ## Languages
 
-Texts are written in place as `tr("Português", "English")` (`src/i18n/index.ts`). Names that come from the protocol tables (keys, functions, light effects, the knob column) are translated in `src/i18n/labels.ts`.
+Texts are written in place as `tr("Português", "English")` (`src/i18n/index.ts`). Names that come from the protocol tables (keys, functions, the knob column) are translated in `src/i18n/labels.ts`; the light effects carry their own names in `src/protocol/effects.ts`.
 
 ## Desktop shell
 
