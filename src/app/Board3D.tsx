@@ -84,32 +84,6 @@ function capGeometry(w: number) {
   return g;
 }
 
-/**
- * A thin flat frame around the cap's foot: the line of LED light that outlines each key where it
- * meets the switch, the way the real board looks lit. Brightest at the cap, fading outwards.
- */
-function rimGeometry(w: number) {
-  const iw = (w - GAP) / 2;
-  const id = (1 - GAP) / 2;
-  const ow = iw + RIM;
-  const od = id + RIM;
-  // Eight points: the inner rectangle, then the outer one; four quads between them.
-  const inner = [[-iw, -id], [iw, -id], [iw, id], [-iw, id]];
-  const outer = [[-ow, -od], [ow, -od], [ow, od], [-ow, od]];
-  const position = [...inner, ...outer].flatMap(([x, z]) => [x, -KEY_H / 2 + 0.01, z]);
-  const colour = [...inner.map(() => [1, 1, 1]), ...outer.map(() => [0, 0, 0])].flat();
-  const index = [0, 1, 2, 3].flatMap((i) => {
-    const j = (i + 1) % 4;
-    return [i, 4 + i, j, j, 4 + i, 4 + j];
-  });
-  const g = new THREE.BufferGeometry();
-  g.setAttribute("position", new THREE.Float32BufferAttribute(position, 3));
-  g.setAttribute("color", new THREE.Float32BufferAttribute(colour, 3));
-  g.setIndex(index);
-  return g;
-}
-const RIM = 0.07;
-
 /** Light on the plate: flat under the key, fading over the gap so neighbours blend. */
 function poolTexture() {
   const c = Object.assign(document.createElement("canvas"), { width: 64, height: 64 });
@@ -125,8 +99,10 @@ function poolTexture() {
   ctx.putImageData(img, 0, 0);
   return new THREE.CanvasTexture(c);
 }
+/** How far the plate reaches past the outer keys: as far as the case's top is flat. */
+const PLATE_RIM = 0.15;
 /** How far a key's light reaches past its footprint, in board units. */
-const SPREAD = 0.35;
+const SPREAD = 0.12;
 /** How long an LED takes to change colour, in seconds. */
 const FADE_S = 0.03;
 
@@ -170,7 +146,6 @@ function paintLegend(ctx: CanvasRenderingContext2D, cell: Cell, text: string, di
 interface KeyParts {
   pos: number;
   caps: THREE.InstancedMesh;
-  skirt: THREE.InstancedMesh;
   index: number;
   slot: number;
   x: number;
@@ -200,7 +175,6 @@ class BoardScene {
   camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
   keys = new Map<number, KeyParts>();
   capMeshes: THREE.InstancedMesh[] = [];
-  skirts: THREE.InstancedMesh[] = [];
   /** The switch housings, clear plastic lit by the LED under them: the light seen between rows. */
   switchGlow!: THREE.InstancedMesh;
   switches!: THREE.InstancedMesh;
@@ -237,7 +211,6 @@ class BoardScene {
   constructor(host: HTMLElement, screen: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "low-power" });
     const r = this.renderer;
-    r.localClippingEnabled = true;
     this.pixelRatio = Math.min(1.5, window.devicePixelRatio);
     r.setPixelRatio(this.pixelRatio);
     // AgX keeps the white and grey caps neutral instead of tinting them.
@@ -269,7 +242,7 @@ class BoardScene {
     body.position.y = -0.45;
     this.pivot.add(body);
 
-    const plate = new THREE.Mesh(new THREE.BoxGeometry(BOARD_UNITS + 0.1, 0.02, DEPTH + 0.1), new THREE.MeshStandardMaterial({ color: 0x08090a, roughness: 0.9 }));
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(BOARD_UNITS + 2 * PLATE_RIM, 0.02, DEPTH + 2 * PLATE_RIM), new THREE.MeshStandardMaterial({ color: 0x08090a, roughness: 0.9 }));
     plate.position.y = 0.005;
     this.pivot.add(plate);
 
@@ -282,43 +255,33 @@ class BoardScene {
     const byWidth = new Map<number, typeof X85_KEYS>();
     for (const k of X85_KEYS) byWidth.set(k.w, [...(byWidth.get(k.w) ?? []), k]);
     const capMesh = new Map<number, THREE.InstancedMesh>();
-    const skirtMesh = new Map<number, THREE.InstancedMesh>();
-    const skirtMat = new THREE.MeshBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
     for (const [w, ks] of byWidth) {
       const mesh = new THREE.InstancedMesh(capGeometry(w), capMat, ks.length);
       mesh.userData.posAt = ks.map((k) => k.pos);
       this.capMeshes.push(mesh);
       capMesh.set(w, mesh);
-      const skirt = new THREE.InstancedMesh(rimGeometry(w), skirtMat, ks.length);
-      skirt.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(ks.length * 3), 3);
-      this.skirts.push(skirt);
-      skirtMesh.set(w, skirt);
-      this.pivot.add(mesh, skirt);
+      this.pivot.add(mesh);
     }
     this.switches = new THREE.InstancedMesh(switchGeo, switchMat, n);
     // The light on the plate shows only in the gaps between caps, as on the real board. Each key's
-    // spreads a little past its footprint so neighbours blend, but never past the plate.
+    // spreads a little past its footprint so neighbours blend, and fades out over the plate's rim:
+    // a hard cut there showed as a dark square at the end of each gap along the edge.
     const pool = poolTexture();
     this.disposers.push(() => pool.dispose());
-    const halfW = (BOARD_UNITS + 0.1) / 2;
-    const halfD = (DEPTH + 0.1) / 2;
-    this.glows = new THREE.InstancedMesh(
-      new THREE.PlaneGeometry(1, 1 + GAP + 2 * SPREAD),
-      new THREE.MeshBasicMaterial({
-        map: pool,
-        blending: THREE.AdditiveBlending,
-        transparent: true,
-        depthWrite: false,
-        toneMapped: false,
-        clippingPlanes: [
-          new THREE.Plane(new THREE.Vector3(1, 0, 0), halfW),
-          new THREE.Plane(new THREE.Vector3(-1, 0, 0), halfW),
-          new THREE.Plane(new THREE.Vector3(0, 0, 1), halfD),
-          new THREE.Plane(new THREE.Vector3(0, 0, -1), halfD),
-        ],
-      }),
-      n,
-    );
+    const glowMat = new THREE.MeshBasicMaterial({ map: pool, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
+    glowMat.onBeforeCompile = (shader) => {
+      shader.uniforms.plateHalf = { value: new THREE.Vector2(BOARD_UNITS / 2 + PLATE_RIM, DEPTH / 2 + PLATE_RIM) };
+      shader.vertexShader = shader.vertexShader
+        .replace("void main() {", "varying vec2 vPlate;\nvoid main() {")
+        .replace("#include <project_vertex>", "#include <project_vertex>\n  vPlate = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xz;");
+      shader.fragmentShader = shader.fragmentShader
+        .replace("void main() {", "varying vec2 vPlate;\nuniform vec2 plateHalf;\nvoid main() {")
+        .replace(
+          "#include <map_fragment>",
+          `#include <map_fragment>\n  vec2 inside = plateHalf - abs(vPlate);\n  diffuseColor.rgb *= smoothstep(0.0, ${PLATE_RIM.toFixed(2)}, min(inside.x, inside.y));`,
+        );
+    };
+    this.glows = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1 + GAP + 2 * SPREAD), glowMat, n);
     this.switchGlow = new THREE.InstancedMesh(
       switchGeo.clone().scale(1.02, 1.02, 1.02),
       new THREE.MeshBasicMaterial({ color: 0xffffff, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false }),
@@ -359,7 +322,7 @@ class BoardScene {
       counts.set(k.w, i + 1);
       const rest = KEY_H / 2 + 0.2 + ROW_RISE[k.y];
       const parts: KeyParts = {
-        pos: k.pos, caps, skirt: skirtMesh.get(k.w)!, index: i, slot, x: p.x, z: p.z, y: rest, rest, tilt: ROW_TILT[k.y],
+        pos: k.pos, caps, index: i, slot, x: p.x, z: p.z, y: rest, rest, tilt: ROW_TILT[k.y],
         legendW: (k.w - GAP - (1 - GAP) * (1 - TOP_SCALE)) * 0.92, legendH: (1 - GAP) * TOP_SCALE * 0.92,
         base: new THREE.Color(ROW_CAP[k.y]), ink: ROW_INK[k.y], edited: false,
         ...LIGHT_POINTS.get(k.pos)!,
@@ -533,8 +496,6 @@ class BoardScene {
     const m = new THREE.Matrix4().compose(new THREE.Vector3(k.x, k.y, k.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), k.tilt), new THREE.Vector3(1, 1, 1));
     k.caps.setMatrixAt(k.index, m);
     k.caps.instanceMatrix.needsUpdate = true;
-    k.skirt.setMatrixAt(k.index, m);
-    k.skirt.instanceMatrix.needsUpdate = true;
     const pos = this.legends.geometry.attributes.position as THREE.BufferAttribute;
     const nor = this.legends.geometry.attributes.normal as THREE.BufferAttribute;
     const hw = k.legendW / 2, hh = k.legendH / 2, top = KEY_H / 2 + 0.004;
@@ -637,14 +598,14 @@ class BoardScene {
       if (Math.abs(shown.r - target.r) + Math.abs(shown.g - target.g) + Math.abs(shown.b - target.b) > 0.003) this.fading = true;
       else shown.copy(target);
       // The caps keep their own colour (the legends do not shine through); the light is the plate
-      // between them and a thin line at each cap's foot.
-      this.glows.setColorAt(k.slot, cap.copy(shown).multiplyScalar(0.4));
+      // between them, close to each key. Spread wide, the keys' light ran together into a smear
+      // across the plate; a bright line at each cap's foot drew a square around every key.
+      this.glows.setColorAt(k.slot, cap.copy(shown).multiplyScalar(0.3));
       this.switchGlow.setColorAt(k.slot, cap.copy(shown).multiplyScalar(0.9));
-      k.skirt.setColorAt(k.index, cap.copy(shown).multiplyScalar(1.6));
     }
     this.switchGlow.instanceColor!.needsUpdate = true;
     this.glows.instanceColor!.needsUpdate = true;
-    for (const m of [...this.capMeshes, ...this.skirts]) m.instanceColor!.needsUpdate = true;
+    for (const m of this.capMeshes) m.instanceColor!.needsUpdate = true;
   }
 
   pick(clientX: number, clientY: number): number | null {
