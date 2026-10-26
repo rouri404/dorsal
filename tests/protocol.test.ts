@@ -8,7 +8,7 @@ import dump from "./fixtures/x85-wired-readonly-dump.json";
 const hex = (s: string) => Uint8Array.from(s.match(/../g)!.map((b) => parseInt(b, 16)));
 
 /** Replays responses captured from the real keyboard, keyed by command byte. */
-function fakeTransport(sent: number[][]) {
+function fakeTransport(sent: number[][], extra: Record<number, (cmd: number[]) => Uint8Array | undefined> = {}) {
   const pages = (s: string) => Array.from({ length: 8 }, (_, i) => hex(s).slice(i * 64, i * 64 + 64));
   const km = pages(dump.keymatrix_p0);
   const fn = pages(dump.fn_win_p0);
@@ -21,6 +21,7 @@ function fakeTransport(sent: number[][]) {
     0xad: () => hex(dump.oled_ad),
     0x8a: (c) => km[c[3]],
     0x90: (c) => fn[c[4]],
+    ...extra,
   };
   const reply = (cmd: ArrayLike<number>) => {
     const c = Array.from(cmd);
@@ -68,8 +69,7 @@ describe("X85 decoding (real captures)", () => {
 
   it("decodes lighting and sleep", async () => {
     const kb = new X85(fakeTransport([]));
-    expect(await kb.light()).toEqual({ mode: 1, speed: 0, brightness: 4, rainbow: false, rgb: { r: 250, g: 255, b: 250 } });
-    expect((await kb.sideLight())?.rainbow).toBe(true);
+    expect(await kb.light()).toEqual({ mode: 1, speed: 0, brightness: 4, option: 0, rainbow: false, rgb: { r: 250, g: 255, b: 250 } });
     expect(await kb.sleep()).toEqual({ btSeconds: 120, rfSeconds: 120, btDeepSeconds: 1680, rfDeepSeconds: 1680 });
   });
 
@@ -86,6 +86,65 @@ describe("X85 decoding (real captures)", () => {
   });
 });
 
+describe("effect options", () => {
+  it("decodes the option nibble", async () => {
+    const kb = new X85(fakeTransport([], { 0x87: () => hex("8704040427ff0000") }));
+    expect(await kb.light()).toMatchObject({ mode: 4, option: 2, rainbow: false, rgb: { r: 255, g: 0, b: 0 } });
+  });
+
+  it("writes the option nibble", async () => {
+    const sent: number[][] = [];
+    await new X85(fakeTransport(sent)).setLight({ mode: 4, speed: 2, brightness: 4, option: 3, rainbow: true, rgb: { r: 1, g: 2, b: 3 } });
+    expect(sent[0]).toEqual([0x07, 4, 2, 4, 0x38, 1, 2, 3]);
+  });
+
+  it("writes mode 13 like the vendor app", async () => {
+    const sent: number[][] = [];
+    await new X85(fakeTransport(sent)).setLight({ mode: 13, speed: 2, brightness: 3, option: 2, rainbow: false, rgb: { r: 255, g: 0, b: 0 } });
+    expect(sent[0]).toEqual([0x07, 13, 2, 3, 0x20, 0x00, 0xc8, 0xc8]);
+  });
+});
+
+describe("per-key colours", () => {
+  // Six 64-byte pages; slot n holds RGB (n, 255 - n, n & 15).
+  const design = Uint8Array.from({ length: 6 * 64 }, (_, i) => {
+    const slot = Math.floor(i / 3);
+    return [slot & 255, 255 - (slot & 255), slot & 15][i % 3];
+  });
+  const page = (c: number[]) => Uint8Array.from(design.slice(c[3] * 64, c[3] * 64 + 64));
+
+  it("reads a design", async () => {
+    const sent: number[][] = [];
+    const colours = (await new X85(fakeTransport(sent, { 0x8c: page })).perKey(2))!;
+    expect(sent.map((c) => c.slice(0, 4))).toEqual(Array.from({ length: 6 }, (_, n) => [0x8c, 2, 0xff, n]));
+    expect(colours).toHaveLength(128);
+    expect(colours[0]).toEqual({ r: 0, g: 255, b: 0 });
+    expect(colours[127]).toEqual({ r: 127, g: 128, b: 15 });
+  });
+
+  it("gives nothing when a page is missing", async () => {
+    const kb = new X85(fakeTransport([], { 0x8c: (c) => (c[3] === 4 ? undefined : page(c)) }));
+    expect(await kb.perKey(0)).toBeUndefined();
+  });
+
+  it("writes a design in seven pages", async () => {
+    const sent: number[][] = [];
+    const colours = Array.from({ length: 128 }, (_, n) => ({ r: n, g: 1, b: 2 }));
+    await new X85(fakeTransport(sent)).setPerKey(2, colours);
+    expect(sent).toHaveLength(7);
+    expect(sent.map((c) => c.slice(0, 7))).toEqual([
+      ...Array.from({ length: 6 }, (_, n) => [0x0c, 2, 0xff, n, 56, 0, 0]),
+      [0x0c, 2, 0xff, 6, 42, 1, 0],
+    ]);
+    expect(sent.every((c) => c.length === 64)).toBe(true);
+    // Slot 5 is bytes 15..17 of the first page's data, which starts at byte 8.
+    expect(sent[0].slice(8 + 15, 8 + 18)).toEqual([5, 1, 2]);
+    // Slot 125 is the last one stored: data byte 375 = page 6, offset 375 - 336 = 39; after it, padding.
+    expect(sent[6].slice(8 + 39, 8 + 42)).toEqual([125, 1, 2]);
+    expect(sent[6].slice(8 + 42).every((b) => b === 0)).toBe(true);
+  });
+});
+
 describe("X85 writes", () => {
   it("encodes a single-key remap like the vendor app", async () => {
     const sent: number[][] = [];
@@ -97,5 +156,39 @@ describe("X85 writes", () => {
     const sent: number[][] = [];
     await new X85(fakeTransport(sent)).syncClock(new Date(2026, 9, 24, 13, 5, 9));
     expect(sent[0].slice(8, 15)).toEqual([0x07, 0xea, 10, 24, 13, 5, 9]);
+  });
+});
+
+describe("per-key animation", () => {
+  // Slot n of frame f is RGB (n, f, 7).
+  const frames = [0, 1].map((f) => Array.from({ length: 128 }, (_, n) => ({ r: n, g: f, b: 7 })));
+
+  it("uploads an animation as the vendor app does", async () => {
+    const sent: number[][] = [];
+    const progress: number[] = [];
+    expect(await new X85(fakeTransport(sent)).setAnimation(frames, 30, (d) => progress.push(d))).toBe(true);
+    expect(sent[0]).toEqual([0x12]);
+    expect(sent).toHaveLength(1 + 14);
+    sent.slice(1).forEach((p, i) => {
+      expect(p.slice(0, 8)).toEqual([0x12, Math.floor(i / 7), i % 7, 1, 2, 30, 0, 0]);
+      expect(p).toHaveLength(64);
+    });
+    // Slot 5 of frame 1: byte 15 of the frame's data, so page 0, offset 8 + 15.
+    expect(sent[1 + 7].slice(8 + 15, 8 + 18)).toEqual([5, 1, 7]);
+    // Page 6 carries the last 48 bytes (slots 112..127), then zeros.
+    const last = sent[1 + 6];
+    expect(last.slice(8, 11)).toEqual([112, 0, 7]);
+    expect(last.slice(8 + 45, 8 + 48)).toEqual([127, 0, 7]);
+    expect(last.slice(8 + 48)).toEqual(new Array(8).fill(0));
+    expect(progress.at(-1)).toBe(1);
+  });
+
+  it("stops at the first failed page", async () => {
+    const sent: number[][] = [];
+    const t = fakeTransport(sent);
+    let n = 0;
+    t.sendInBatch = async (cmd: ArrayLike<number>) => (sent.push(Array.from(cmd)), ++n !== 5);
+    expect(await new X85(t).setAnimation(frames, 30)).toBe(false);
+    expect(sent).toHaveLength(5);
   });
 });

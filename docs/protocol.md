@@ -94,6 +94,91 @@ not in it and were checked by pressing them):
 | `[0, 0, 0x46, 0]` | Fn+F6 | Print Screen |
 | `[3, 0, …]` | Fn+F7…F12 | previous, play/pause, next, mute, volume −, volume + |
 
+## Lighting beyond the effect list
+
+From class `an` in the vendor web app and from its IOT driver (`iot_manager_rs`, macOS build
+0.1.7, which keeps its symbol names). Run on the keyboard so far: the effect options, per-key colours
+(`0x8C`/`0x0C`), per-key animation (`0x12` with mode 25) and the music stream; the rest is read from the code. The plan that uses them is in [`roadmap.md`](roadmap.md).
+
+Modes of `0x07` (byte 1), with the vendor's names:
+
+| Mode | Name | Notes |
+|---|---|---|
+| 0–12, 14–19, 23, 24 | the effects in the app | |
+| 13 | `LightUserPicture` | per-key colours; byte 4 = option << 4, RGB sent as `00 c8 c8` |
+| 20 | `LightMusicFollow3` | music, "Classic"; needs the host stream below |
+| 21 | `LightScreenColor` | follows the colours on the monitor; byte 4 = 0 |
+| 22 | `LightMusicFollow2` | music, "EDM"; needs the host stream below |
+| 25 | `LightUserColor` | plays the animation uploaded with `0x12` (the vendor app offers "dynamic light" on boards that list this mode) |
+
+Byte 4 of `0x07`: the high nibble is an option per effect (the list is in `src/protocol/effects.ts`); the low nibble is
+7 for the custom RGB, 8 for rainbow, 0–6 for a preset colour. In the music modes it is 0 for
+rainbow and 4 for the custom colour.
+
+| Cmd | Function | Format |
+|---|---|---|
+| `0x8C` | read per-key colours | `[0x8C, profile, 0xFF, page 0..5]` → 64 bytes per page; key `pos` is RGB at `pos*3` |
+| `0x0C` | write per-key colours | `[0x0C, profile, 0xFF, page 0..6, len, last, 0, chk, …56 bytes]`; `len` 56, or 42 and `last` 1 on page 6 |
+| `0x12` | per-key animation | `[0x12]` starts it (then wait 300 ms), then per frame and page: `[0x12, frame, page 0..6, 1, frames, delayLo, delayHi, chk, …56 bytes]`; the colours are laid out as in `0x0C` |
+| `0x0D` | music stream | `[0x0D, 0, 0, 0, 0, 0, 0, chk, h0 … h41]` |
+| `0x0E` | screen-colour stream | `[0x0E, …colours]`; the colour layout is not decoded yet |
+| `0x8B` / `0x0B` | read / write a macro | up to 50; format not documented here yet |
+
+All use `bit7`.
+
+The music stream was run on the keyboard on 2026-10-25, in modes 20 and 22. It worked both with
+synthetic patterns and with live audio, with no failed packets, and the light was restored
+afterwards.
+- **Heights:** `h0 … h41` are 42 bands, low to high, each a height from 0 to 6. The vendor's
+  driver computes them as `round(clamp(level, 0, 1) × 6)`.
+- **Timing:** the driver sends one packet every 20 ms.
+- **Who draws:** the keyboard draws the bars itself; it has no microphone.
+
+### How each effect moves
+
+Every effect and option was filmed on the keyboard on 2026-10-25, in red at speed 2 and
+brightness 4. The video was read as light per region of the board over time. The preview in
+`src/app/lightFx.ts` follows these numbers; other speeds scale them by the vendor's roughly even
+steps (not filmed).
+
+| Effect | On the keyboard |
+|---|---|
+| Breathing | dark → full → dark every 1.2 s |
+| Neon | the whole board turns through the hues every ~2.6 s, ignoring the colour |
+| Wave, Lines | lit board; a dark dip about 18 keys long sweeps it 3 times a second in the option's direction (Wave: right, left, down = towards the front, up). With the rainbow there is no dip, and the colours cross the board in about 1.5 s (seen on the keyboard on 2026-10-25) |
+| Circular wave | lit board; one dark sector turns 3 times a second (option 0 anticlockwise, 1 clockwise, seen from above) |
+| Kaleidoscope | lit board; dark rings move out from the centre (option 0) or in (option 1), 3 times a second |
+| Snake | a run of ~9 keys over a faint board. Zigzag: the number row left to right, the next row back, ~12 keys/s. Spiral: clockwise round the edge, ~23 keys/s |
+| Converge | light spreads from a point until the board is lit, then darkness spreads from it; ~1.9 s a cycle |
+| Train | a train ~20 keys long crosses left to right in ~0.6 s, then comes back from the right; ~4.2 s for both |
+| Meteor | a streak crosses one row left to right in ~0.25 s, stays lit ~0.7 s and fades; a new row every ~0.65 s |
+| Raindrop | about a third of the keys lit at random, each fading in ~0.6 s |
+| Rain | a dim board with drops |
+| Ripple, Reactive, Laser | dark until a key is pressed (Ripple: a ring spreads from the key) |
+| Reactive (off) | lit; pressed keys go dark |
+| Sine wave, Rainbow, Fireworks | with one colour, almost steady and lit (Fireworks: faint rings) |
+
+Per-key animation, run on the keyboard on 2026-10-25:
+- **Upload:** 20 frames took 2 s and 200 frames took 17 s (about 85–100 ms a frame). Every
+  packet was accepted.
+- **Playing:** uploading does not change the mode. In mode 25 the keyboard plays the frames in a
+  loop, with each frame's delay in ms.
+- **Length:** on the first long upload, 200 frames all played (the vendor editor's limit; `frame`
+  is one byte). But the start command does not clear the whole area: on later uploads, the frames
+  past about 100 kept data from earlier ones, as if written over without erasing. With all-white
+  frames, 100 played clean, while 160, 167 and 170 flashed at the end of each loop, and 200 showed
+  the earlier animation for part of it. Dorsal uses at most 100 frames, of 20 to 130 ms.
+- **Storage:** the animation survives unplugging the cable.
+- **From the studio** (same day): a two-layer effect of 200 frames, stored through the lighting
+  tab, took 18 s and read back as mode 25; its last frames showed the problem above. The same
+  wave in 100 frames of 40 ms took 9.6 s and played clean.
+- **Brightness:** in mode 25 the brightness byte is accepted and reads back (1 and 4 tried).
+  Whether it dims the frames is still to be checked by eye; Dorsal sends the frames at full
+  colour.
+
+Side light: `0x88` / `0x08` answer and read back, but the X85 has no side strip (checked by
+eye on the user's keyboard).
+
 ## TFT screen (shared commands, class `F6`)
 
 | Cmd | Function |

@@ -7,6 +7,7 @@ import { Transport } from "../hid/transport";
 import { sleep } from "../hid/timer";
 import type { KeyValue } from "./keycodes";
 import { buildScreenUpload, type ScreenUpload } from "../screen/packets";
+import { PER_KEY_MODE } from "./effects";
 
 const CMD = {
   RESET: 0x01,
@@ -14,7 +15,8 @@ const CMD = {
   SET_PROFILE: 0x04,
   SET_DEBOUNCE: 0x06,
   SET_LIGHT: 0x07,
-  SET_SIDE_LIGHT: 0x08,
+  SET_PER_KEY: 0x0c,
+  SET_ANIMATION: 0x12,
   SET_KEY: 0x0a,
   SET_FN_KEY: 0x10,
   SET_SLEEP: 0x11,
@@ -25,7 +27,7 @@ const CMD = {
   GET_POWER_SAVE: 0x85,
   GET_DEBOUNCE: 0x86,
   GET_LIGHT: 0x87,
-  GET_SIDE_LIGHT: 0x88,
+  GET_PER_KEY: 0x8c,
   GET_KEYMATRIX: 0x8a,
   GET_IDENTITY: 0x8f,
   GET_FN_KEYMATRIX: 0x90,
@@ -38,16 +40,8 @@ export const X85_DEVICE_ID = 3451;
 /** Slots in the column-major key matrix (16 columns x 6 rows on the X85). */
 const MATRIX_SLOTS = 128;
 
-export const LIGHT_MODES: Record<number, string> = {
-  0: "Desligado", 1: "Sempre aceso", 2: "Respiração", 3: "Neon", 4: "Onda", 5: "Ondulação",
-  6: "Gota de chuva", 7: "Cobra", 8: "Reação ao toque", 9: "Convergência", 10: "Onda senoidal",
-  11: "Caleidoscópio", 12: "Linhas", 14: "Laser", 15: "Onda circular", 16: "Arco-íris",
-  17: "Chuva", 18: "Meteoro", 19: "Toque (apaga)", 23: "Trem", 24: "Fogos",
-};
-export const SIDE_LIGHT_MODES: Record<number, string> = {
-  0: "Desligado", 1: "Sempre aceso", 2: "Respiração", 3: "Neon", 4: "Onda", 5: "Cobra",
-};
-// Low nibble of byte 4: 7 = custom RGB, 8 = rainbow ("dazzle"); other values pick a preset color.
+// Byte 4: the high nibble is the effect's option; the low nibble is 7 for the custom RGB, 8 for
+// rainbow ("dazzle"), and other values pick a preset color.
 const LIGHT_NORMAL = 7;
 const LIGHT_DAZZLE = 8;
 const LIGHT_MAX_SPEED = 4;
@@ -65,10 +59,17 @@ export interface ScreenInfo {
   flashVersion: number;
   chip: string;
 }
+export interface Rgb {
+  r: number;
+  g: number;
+  b: number;
+}
 export interface LightSetting {
   mode: number;
   speed: number; // 0..4, higher is faster
   brightness: number; // 0..4
+  /** The effect's option (direction, variant or per-key design), 0..15. */
+  option: number;
   rainbow: boolean;
   rgb: { r: number; g: number; b: number };
 }
@@ -152,7 +153,7 @@ export class X85 {
     return this.t.send([CMD.RESET], { write: true });
   }
 
-  private decodeLight(r: Uint8Array, invertSpeed: boolean): LightSetting {
+  private decodeLight(r: Uint8Array): LightSetting {
     const low = r[4] & 15;
     let rgb = { r: r[5], g: r[6], b: r[7] };
     if (low !== LIGHT_NORMAL && low !== LIGHT_DAZZLE && PRESET_COLORS[low] !== undefined) {
@@ -161,8 +162,9 @@ export class X85 {
     }
     return {
       mode: r[1],
-      speed: invertSpeed ? LIGHT_MAX_SPEED - r[2] : r[2],
+      speed: LIGHT_MAX_SPEED - r[2],
       brightness: r[3],
+      option: r[4] >> 4,
       rainbow: low === LIGHT_DAZZLE,
       rgb,
     };
@@ -170,24 +172,64 @@ export class X85 {
 
   async light(): Promise<LightSetting | undefined> {
     const r = await this.t.query([CMD.GET_LIGHT]);
-    return r && r[0] === CMD.GET_LIGHT ? this.decodeLight(r, true) : undefined;
+    return r && r[0] === CMD.GET_LIGHT ? this.decodeLight(r) : undefined;
   }
 
   async setLight(l: LightSetting): Promise<boolean> {
-    const p = [CMD.SET_LIGHT, l.mode, LIGHT_MAX_SPEED - l.speed, l.brightness, l.rainbow ? LIGHT_DAZZLE : LIGHT_NORMAL, l.rgb.r, l.rgb.g, l.rgb.b];
-    return this.t.send(p, { checksum: "bit8", write: true });
+    const option = (l.option & 15) << 4;
+    // Per-key colours: the vendor app writes no colour flag and a fixed colour.
+    const tail = l.mode === PER_KEY_MODE ? [option, 0x00, 0xc8, 0xc8] : [option | (l.rainbow ? LIGHT_DAZZLE : LIGHT_NORMAL), l.rgb.r, l.rgb.g, l.rgb.b];
+    return this.t.send([CMD.SET_LIGHT, l.mode, LIGHT_MAX_SPEED - l.speed, l.brightness, ...tail], { checksum: "bit8", write: true });
   }
 
-  async sideLight(): Promise<LightSetting | undefined> {
-    const r = await this.t.query([CMD.GET_SIDE_LIGHT]);
-    return r && r[0] === CMD.GET_SIDE_LIGHT ? this.decodeLight(r, false) : undefined;
+  /** A per-key design (0..4): one colour per matrix slot, or nothing if a page did not come. */
+  perKey(design: number): Promise<Rgb[] | undefined> {
+    return this.t.batch(async () => {
+      const bytes: number[] = [];
+      for (let page = 0; page < 6; page++) {
+        const r = await this.t.queryInBatch([CMD.GET_PER_KEY, design, 0xff, page]);
+        if (!r) return undefined;
+        bytes.push(...r);
+      }
+      return Array.from({ length: MATRIX_SLOTS }, (_, i) => ({ r: bytes[i * 3], g: bytes[i * 3 + 1], b: bytes[i * 3 + 2] }));
+    });
   }
 
-  async setSideLight(l: LightSetting): Promise<boolean> {
-    const white = l.rgb.r === 255 && l.rgb.g === 255 && l.rgb.b === 255;
-    const rgb = white ? [250, 255, 250] : [l.rgb.r, l.rgb.g, l.rgb.b];
-    const p = [CMD.SET_SIDE_LIGHT, l.mode, l.speed, l.brightness, l.rainbow ? LIGHT_DAZZLE : LIGHT_NORMAL, ...rgb];
-    return this.t.send(p, { checksum: "bit8", write: true });
+  /** Writes a design in seven pages of 56 bytes; the last one carries 42 and a flag, so slots 126 and 127 are not stored. */
+  setPerKey(design: number, colours: Rgb[]): Promise<boolean> {
+    const data = new Array(MATRIX_SLOTS * 3).fill(0);
+    colours.slice(0, MATRIX_SLOTS).forEach((c, i) => data.splice(i * 3, 3, c.r, c.g, c.b));
+    return this.t.batch(async () => {
+      for (let page = 0; page < 7; page++) {
+        const last = page === 6;
+        const chunk = data.slice(page * 56, page * 56 + (last ? 42 : 56));
+        const p = [CMD.SET_PER_KEY, design, 0xff, page, last ? 42 : 56, last ? 1 : 0, 0, 0, ...chunk, ...new Array(56 - chunk.length).fill(0)];
+        if (!(await this.t.sendInBatch(p, { write: true }))) return false;
+      }
+      return true;
+    });
+  }
+
+  /**
+   * Uploads a looping animation: a start command, then each frame in seven pages of 56 bytes
+   * (128 slots of RGB, the last page padded). It plays in ANIMATION_MODE; the mode is not changed.
+   */
+  setAnimation(frames: Rgb[][], delayMs: number, onProgress?: (done: number) => void): Promise<boolean> {
+    return this.t.batch(async () => {
+      if (!(await this.t.sendInBatch([CMD.SET_ANIMATION], { write: true }))) return false;
+      await sleep(300);
+      for (let f = 0; f < frames.length; f++) {
+        const data = new Array(MATRIX_SLOTS * 3).fill(0);
+        frames[f].slice(0, MATRIX_SLOTS).forEach((c, i) => data.splice(i * 3, 3, c.r, c.g, c.b));
+        for (let page = 0; page < 7; page++) {
+          const chunk = data.slice(page * 56, page * 56 + 56);
+          const p = [CMD.SET_ANIMATION, f, page, 1, frames.length, delayMs & 255, (delayMs >> 8) & 255, 0, ...chunk, ...new Array(56 - chunk.length).fill(0)];
+          if (!(await this.t.sendInBatch(p, { write: true }))) return false;
+        }
+        onProgress?.((f + 1) / frames.length);
+      }
+      return true;
+    });
   }
 
   private async readMatrix(page: (n: number) => number[]): Promise<KeyValue[] | undefined> {
