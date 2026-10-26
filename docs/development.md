@@ -10,7 +10,7 @@
 curl -fsSL https://dorsal.cotoo.dev/udev.sh | sudo sh
 ```
 
-The script, `udev/install.sh` filled in at build time with `VITE_SITE_URL` (`udevScript` in `vite.config.ts`), writes `udev/70-attack-shark-x85.rules` to `/etc/udev/rules.d/` and reloads udev. From a clone, the same by hand:
+The script, `udev/install.sh` filled in at build time with `VITE_SITE_URL` and the shared start in `setup/header.sh` (`setupScripts` in `vite.config.ts`), writes `udev/70-attack-shark-x85.rules` to `/etc/udev/rules.d/` and reloads udev. From a clone, the same by hand:
 
 ```bash
 sudo cp udev/70-attack-shark-x85.rules /etc/udev/rules.d/
@@ -18,6 +18,16 @@ sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=hidraw
 ```
 
 Then unplug and replug the keyboard.
+
+For the music modes on the site, the browser needs an input that carries the computer's sound
+(once, no root; the AppImage does without it):
+
+```bash
+curl -fsSL https://dorsal.cotoo.dev/music.sh | sh
+```
+
+It writes `setup/dorsal-music.conf` to `~/.config/pipewire/pipewire.conf.d/` and restarts
+PipeWire. To undo, delete that file and run `systemctl --user restart pipewire`.
 
 ## Scripts
 

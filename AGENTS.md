@@ -28,6 +28,7 @@ keyboard, open the app with `?demo` (or `X85_DEMO=1` for the AppImages).
 | `src/studio/` | The effect studio: layers, the seamless loop, upload, saved effects |
 | `src/app/` | The configurator UI, the 3D board (`Board3D.tsx`) and the light preview (`lightFx.ts`) |
 | `src/screen/` | TFT image and GIF upload |
+| `src/music/` | The music modes: spectrum to bar heights (`bands.ts`) and the streaming engine |
 | `src/demo/` | Demo mode: replays a real keyboard's captured answers |
 | `src/components/motion/`, `src/lib/` | Vendored [beUI](https://beui.dev): do not edit |
 | `docs/protocol.md` | The HID protocol, command by command, with what was verified on hardware |
@@ -43,8 +44,8 @@ keyboard, open the app with `?demo` (or `X85_DEMO=1` for the AppImages).
   Prettier over existing files.
 - **Dependencies:** pin exact versions. Vite bundles everything into `dist/`, so the AppImages ship
   no `node_modules`.
-- **Tests:** keep the logic in pure modules (the protocol, `src/studio/`, `lightFx.ts`, `paint.ts`)
-  and test it there. Check UI changes in demo mode.
+- **Tests:** keep the logic in pure modules (the protocol, `src/studio/`, `src/music/bands.ts`,
+  `lightFx.ts`, `paint.ts`) and test it there. Check UI changes in demo mode.
 - **Docs:** when you learn something about the protocol, record it in `docs/protocol.md`, saying
   whether it was seen on the keyboard.
 

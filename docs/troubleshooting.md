@@ -45,3 +45,22 @@ Each GIF frame is composited over the previous ones, honouring the "restore to b
 ## The last image is not shown
 
 The last image sent is remembered per address (`localStorage`): the site, the AppImage and the mini app each keep their own. It appears again after the next upload from that place.
+
+## The keys do not follow the music
+
+- **On the site, "Som do computador" asks for a command.** Browsers on Linux do not list the
+  computer's own sound. Run this once (no root), then try again:
+
+  ```bash
+  curl -fsSL https://dorsal.cotoo.dev/music.sh | sh
+  ```
+
+  The AppImage does not need it. Then close the browser completely and open it again: it loses
+  the sound server when PipeWire restarts, and lists no input until it is reopened. When it asks
+  for the microphone, pick "Dorsal": that input is the computer's sound.
+- **The bars move but the keys do not.** Apply a music mode to the keyboard first: the bars are
+  sent only while the keyboard is in "Música: clássico" or "Música: EDM".
+- **A microphone hears nothing.** "Microfone padrão" is a microphone, not the computer's sound.
+- **The music stops when the window closes.** In the AppImage, closing the window keeps Dorsal
+  in the tray, but only if the desktop shows tray icons: on GNOME, enable the AppIndicator
+  extension. On the site, the tab must stay open (it can be in the background).

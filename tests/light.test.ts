@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { clockRate, effectFor, LIGHT_POINTS, lightAt, motionPeriod, zigzag, type LightPoint } from "../src/app/lightFx";
 import { BOARD_ROWS, BOARD_UNITS, X85_KEYS } from "../src/layout/x85";
 import type { LightSetting } from "../src/protocol/x85";
+import { setLiveBars } from "../src/music/live";
 
 const setting = (mode: number, option: number): LightSetting => ({ mode, speed: 2, brightness: 4, option, rainbow: false, rgb: { r: 255, g: 0, b: 0 } });
 const out = new THREE.Color();
@@ -190,5 +191,33 @@ describe("light points and periods, shared with the studio", () => {
 
   it("speed 0 still moves", () => {
     expect(clockRate(0)).toBeGreaterThan(0.3);
+  });
+});
+
+describe("music modes", () => {
+  const bars = (h: (band: number) => number) => setLiveBars(Array.from({ length: 42 }, (_, b) => h(b)));
+
+  it("draws each band as a column whose height lights the rows from the bottom", () => {
+    for (const mode of [20, 22]) {
+      expect(effectFor(mode)).toBe("music");
+      bars(() => 6);
+      expect(amount(setting(mode, 0), point(0.5, 0.05), 0)).toBe(1);
+      bars(() => 0);
+      expect(amount(setting(mode, 0), point(0.5, 0.95), 0)).toBe(0);
+      // The first band at height 1 lights only the bottom row of the left edge.
+      bars((b) => (b === 0 ? 1 : 0));
+      expect(amount(setting(mode, 0), point(0.01, 0.95), 0)).toBe(1);
+      expect(amount(setting(mode, 0), point(0.01, 0.8), 0)).toBe(0);
+      expect(amount(setting(mode, 0), point(0.5, 0.95), 0)).toBe(0);
+    }
+    setLiveBars(null);
+  });
+
+  it("moves on its own with no sound, and never repeats", () => {
+    setLiveBars(null);
+    const l = setting(20, 0);
+    const frames = [0, 0.3, 0.6, 0.9].map((t) => X85_KEYS.map((k) => amount(l, LIGHT_POINTS.get(k.pos)!, t)).join());
+    expect(new Set(frames).size).toBe(4);
+    expect(motionPeriod("music", 0, false)).toBeNull();
   });
 });

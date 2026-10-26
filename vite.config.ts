@@ -64,20 +64,33 @@ function seoFiles(info: SeoSite): Plugin {
   };
 }
 
-/** udev.sh, the landing page's one-line Linux setup: udev/install.sh with the site and the rule. */
-function udevScript(site: string): Plugin {
-  const read = (file: string) => readFileSync(fileURLToPath(new URL(`./udev/${file}`, import.meta.url)), "utf8");
-  const script = () => read("install.sh").replaceAll("@SITE@", site).replace("@RULE@", () => read("70-attack-shark-x85.rules").trim());
+/**
+ * The one-line Linux setups, filled in with the site and the shared header (setup/header.sh):
+ * udev.sh, the landing page's access rule (udev/install.sh), and music.sh, which lets the site
+ * hear the computer's sound (setup/music.sh).
+ */
+function setupScripts(site: string): Plugin {
+  const read = (file: string) => readFileSync(fileURLToPath(new URL(`./${file}`, import.meta.url)), "utf8");
+  const fill = (file: string, parts: Record<string, string>) => {
+    let out = read(file).replace("@HEADER@", () => read("setup/header.sh").trimEnd());
+    for (const [key, file] of Object.entries(parts)) out = out.replace(key, () => read(file).trim());
+    return out.replaceAll("@SITE@", site);
+  };
+  const scripts: Record<string, () => string> = {
+    "udev.sh": () => fill("udev/install.sh", { "@RULE@": "udev/70-attack-shark-x85.rules" }),
+    "music.sh": () => fill("setup/music.sh", { "@CONF@": "setup/dorsal-music.conf" }),
+  };
   return {
-    name: "udev-script",
+    name: "setup-scripts",
     configureServer: (server) =>
       void server.middlewares.use((req, res, next) => {
-        if ((req.url ?? "").split("?")[0] !== "/udev.sh") return next();
+        const script = scripts[(req.url ?? "").split("?")[0].slice(1)];
+        if (!script) return next();
         res.setHeader("Content-Type", "text/plain; charset=utf-8");
         res.end(script());
       }),
     generateBundle() {
-      this.emitFile({ type: "asset", fileName: "udev.sh", source: script() });
+      for (const [fileName, script] of Object.entries(scripts)) this.emitFile({ type: "asset", fileName, source: script() });
     },
   };
 }
@@ -115,12 +128,13 @@ export default defineConfig(({ mode }) => {
   const { version } = JSON.parse(readFileSync(fileURLToPath(new URL("./package.json", import.meta.url)), "utf8")) as { version: string };
   return {
     base: "/",
-    plugins: [react(), tailwindcss(), seoFiles({ site, repo, version }), udevScript(site), serveAppImages()],
+    plugins: [react(), tailwindcss(), seoFiles({ site, repo, version }), setupScripts(site), serveAppImages()],
     build: {
       rollupOptions: {
         input: {
           main: fileURLToPath(new URL("./index.html", import.meta.url)),
           mini: fileURLToPath(new URL("./mini.html", import.meta.url)),
+          background: fileURLToPath(new URL("./background.html", import.meta.url)),
         },
       },
     },

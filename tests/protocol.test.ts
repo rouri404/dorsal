@@ -105,6 +105,35 @@ describe("effect options", () => {
   });
 });
 
+describe("music", () => {
+  it("streams 42 band heights, clamped to 0..6, in one 0x0D packet without waits or logging", async () => {
+    const calls: { cmd: number[]; opts: unknown }[] = [];
+    const t = { send: async (cmd: ArrayLike<number>, opts: unknown) => (calls.push({ cmd: Array.from(cmd), opts }), true) } as unknown as Transport;
+    const heights = Array.from({ length: 42 }, (_, i) => (i % 9) - 1);
+    expect(await new X85(t).music(heights)).toBe(true);
+    expect(calls[0].cmd).toEqual([0x0d, 0, 0, 0, 0, 0, 0, 0, ...heights.map((h) => Math.min(6, Math.max(0, h)))]);
+    expect(calls[0].opts).toMatchObject({ sendDelay: 0, quiet: true, write: true });
+    // The checksum covers bytes 0..6, as for every bit7 command.
+    expect(encodePacket(calls[0].cmd)[7]).toBe(0xff - 0x0d);
+  });
+
+  it("writes the music modes' colour flag: 0 for the rainbow, 4 for the colour", async () => {
+    const sent: number[][] = [];
+    const kb = new X85(fakeTransport(sent));
+    await kb.setLight({ mode: 20, speed: 2, brightness: 4, option: 0, rainbow: true, rgb: { r: 1, g: 2, b: 3 } });
+    await kb.setLight({ mode: 22, speed: 2, brightness: 3, option: 0, rainbow: false, rgb: { r: 10, g: 20, b: 30 } });
+    expect(sent[0]).toEqual([0x07, 20, 2, 4, 0x00, 1, 2, 3]);
+    expect(sent[1]).toEqual([0x07, 22, 2, 3, 0x04, 10, 20, 30]);
+  });
+
+  it("reads the music modes' colour flag back", async () => {
+    const rainbow = new X85(fakeTransport([], { 0x87: () => hex("8714020400010203") }));
+    expect(await rainbow.light()).toMatchObject({ mode: 20, rainbow: true, rgb: { r: 1, g: 2, b: 3 } });
+    const colour = new X85(fakeTransport([], { 0x87: () => hex("87160203040a141e") }));
+    expect(await colour.light()).toMatchObject({ mode: 22, rainbow: false, rgb: { r: 10, g: 20, b: 30 } });
+  });
+});
+
 describe("per-key colours", () => {
   // Six 64-byte pages; slot n holds RGB (n, 255 - n, n & 15).
   const design = Uint8Array.from({ length: 6 * 64 }, (_, i) => {

@@ -37,7 +37,7 @@ O **Dorsal** reimplementa o protocolo do teclado do zero, a partir de engenharia
 
 - **Tela TFT:** envia imagens e GIFs de até 60 quadros (128 × 128, RGB565), com enquadramento por arraste e zoom, e acerta o relógio do teclado. O envio continua com a janela em segundo plano.
 - **Teclas:** remapeia a camada normal e a camada segurando Fn, além do knob (apertar e girar). As teclas trocadas aparecem em destaque, com retorno ao padrão de fábrica.
-- **Iluminação:** os 21 efeitos das teclas com suas opções (direção, desenho), cor, brilho e velocidade, animados no modelo 3D como o teclado faz; cores por tecla pintadas no teclado, em cinco desenhos; e um estúdio de efeitos: ondas em qualquer ângulo ou a partir de uma tecla, cores sólidas, teclas pintadas e os próprios efeitos do teclado, em camadas sobre áreas de teclas e gravadas no teclado, que as toca sozinho.
+- **Iluminação:** os 21 efeitos das teclas com suas opções (direção, desenho), cor, brilho e velocidade, animados no modelo 3D como o teclado faz; cores por tecla pintadas no teclado, em cinco desenhos; e um estúdio de efeitos: ondas em qualquer ângulo ou a partir de uma tecla, cores sólidas, teclas pintadas e os próprios efeitos do teclado, em camadas sobre áreas de teclas e gravadas no teclado, que as toca sozinho; e teclas que seguem a música tocando no computador (o AppImage ouve qualquer programa, o site uma aba compartilhada).
 - **Sistema:** taxa de polling (125 a 8000 Hz), debounce, repouso e sono profundo no 2.4G e no Bluetooth, backup em JSON com restauração, e reset de fábrica.
 - **Teclado em 3D:** modelo fiel ao produto (degradê das teclas, knob, TFT ao vivo), com uma câmera que vai até o que cada seção edita.
 - **Dois idiomas:** português e inglês, incluindo os nomes das teclas, funções e efeitos.
@@ -65,7 +65,7 @@ Os guias estão em inglês:
 | [Publicação](docs/deployment.md) | Publicar em `dorsal.cotoo.dev` e distribuir os AppImages |
 | [Dorsal Screen](docs/dorsal-screen.md) | O app pequeno para a tela |
 | [Problemas comuns](docs/troubleshooting.md) | Teclado não encontrado, envio parado, 3D lento |
-| [Próximos passos](docs/roadmap.md) | Iluminação fiel e estúdio de efeitos (prontos), música, app na bandeja e perfis, nessa ordem (em inglês) |
+| [Próximos passos](docs/roadmap.md) | Iluminação fiel, estúdio de efeitos e música (prontos), app na bandeja e perfis, nessa ordem (em inglês) |
 
 O protocolo está documentado em [`docs/protocol.md`](docs/protocol.md) (em inglês), com leituras e gravações confirmadas no teclado real.
 

@@ -7,7 +7,7 @@ import { Transport } from "../hid/transport";
 import { sleep } from "../hid/timer";
 import type { KeyValue } from "./keycodes";
 import { buildScreenUpload, type ScreenUpload } from "../screen/packets";
-import { PER_KEY_MODE } from "./effects";
+import { isMusicMode, PER_KEY_MODE } from "./effects";
 
 const CMD = {
   RESET: 0x01,
@@ -17,6 +17,7 @@ const CMD = {
   SET_LIGHT: 0x07,
   SET_PER_KEY: 0x0c,
   SET_ANIMATION: 0x12,
+  MUSIC: 0x0d,
   SET_KEY: 0x0a,
   SET_FN_KEY: 0x10,
   SET_SLEEP: 0x11,
@@ -44,6 +45,9 @@ const MATRIX_SLOTS = 128;
 // rainbow ("dazzle"), and other values pick a preset color.
 const LIGHT_NORMAL = 7;
 const LIGHT_DAZZLE = 8;
+/** The colour flag in the music modes (low nibble of byte 4), from the vendor's driver. */
+const MUSIC_RAINBOW = 0;
+const MUSIC_COLOUR = 4;
 const LIGHT_MAX_SPEED = 4;
 const PRESET_COLORS = [0xff0000, 0xff8000, 0xffff00, 0x00ff00, 0x00ffff, 0x0000ff, 0xff00ff];
 
@@ -156,6 +160,8 @@ export class X85 {
   private decodeLight(r: Uint8Array): LightSetting {
     const low = r[4] & 15;
     let rgb = { r: r[5], g: r[6], b: r[7] };
+    // The music modes flag the rainbow with 0 and the colour with 4.
+    if (isMusicMode(r[1])) return { mode: r[1], speed: LIGHT_MAX_SPEED - r[2], brightness: r[3], option: r[4] >> 4, rainbow: low === MUSIC_RAINBOW, rgb };
     if (low !== LIGHT_NORMAL && low !== LIGHT_DAZZLE && PRESET_COLORS[low] !== undefined) {
       const c = PRESET_COLORS[low];
       rgb = { r: c >> 16, g: (c >> 8) & 255, b: c & 255 };
@@ -178,7 +184,8 @@ export class X85 {
   async setLight(l: LightSetting): Promise<boolean> {
     const option = (l.option & 15) << 4;
     // Per-key colours: the vendor app writes no colour flag and a fixed colour.
-    const tail = l.mode === PER_KEY_MODE ? [option, 0x00, 0xc8, 0xc8] : [option | (l.rainbow ? LIGHT_DAZZLE : LIGHT_NORMAL), l.rgb.r, l.rgb.g, l.rgb.b];
+    const colour = isMusicMode(l.mode) ? (l.rainbow ? MUSIC_RAINBOW : MUSIC_COLOUR) : l.rainbow ? LIGHT_DAZZLE : LIGHT_NORMAL;
+    const tail = l.mode === PER_KEY_MODE ? [option, 0x00, 0xc8, 0xc8] : [option | colour, l.rgb.r, l.rgb.g, l.rgb.b];
     return this.t.send([CMD.SET_LIGHT, l.mode, LIGHT_MAX_SPEED - l.speed, l.brightness, ...tail], { checksum: "bit8", write: true });
   }
 
@@ -261,6 +268,15 @@ export class X85 {
 
   setFnKey(pos: number, value: KeyValue, os = 0, fnProfile = 0): Promise<boolean> {
     return this.t.send([CMD.SET_FN_KEY, os, fnProfile, pos, 0, 0, 0, 0, ...value], { write: true });
+  }
+
+  /**
+   * One frame of the music modes: 42 band heights 0..6, low to high, which the keyboard draws
+   * itself. Sent every 20 ms, so with no wait before it and left out of the log.
+   */
+  music(heights: number[]): Promise<boolean> {
+    const h = heights.map((x) => Math.min(6, Math.max(0, Math.round(x))));
+    return this.t.send([CMD.MUSIC, 0, 0, 0, 0, 0, 0, 0, ...h], { sendDelay: 0, quiet: true, write: true });
   }
 
   async syncClock(date = new Date()): Promise<boolean> {

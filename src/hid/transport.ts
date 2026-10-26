@@ -25,6 +25,8 @@ export interface XferOptions {
   readDelay?: number;
   /** Changes device state: suppressed in dry-run mode. */
   write?: boolean;
+  /** Left out of the log: the music stream sends 50 packets a second. */
+  quiet?: boolean;
 }
 
 function isConfigCollection(d: HIDDevice): boolean {
@@ -90,14 +92,14 @@ export class Transport {
 
   private async rawSend(packet: Uint8Array, opts: XferOptions): Promise<boolean> {
     if (opts.write && this.dryRun) {
-      this.log("dry", packet);
+      if (!opts.quiet) this.log("dry", packet);
       return true;
     }
     const delay = opts.sendDelay ?? 10;
     if (delay > 0) await sleep(delay);
     try {
       await this.device.sendFeatureReport(REPORT_ID, packet);
-      this.log("tx", packet);
+      if (!opts.quiet) this.log("tx", packet);
       return true;
     } catch (err) {
       this.log("err", `send ${toHex(packet, 8)}…: ${String(err)}`);

@@ -1,6 +1,7 @@
 // Electron shell for the AppImages: serves the Vite build from app://x85/ and grants WebHID
 // access to the Attack Shark keyboard (VID 0x3151) only.
-const { app, BrowserWindow, net, protocol, session } = require("electron");
+const { app, BrowserWindow, Menu, Notification, Tray, ipcMain, net, protocol, session } = require("electron");
+const { execFile, execFileSync, spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
@@ -19,6 +20,47 @@ const screenshotPath = process.env.X85_SCREENSHOT;
 const hidDisabled = process.env.X85_NO_HID === "1";
 // X85_MINI=1 opens the mini screen app (set by electron/mini.cjs in the Dorsal Screen AppImage).
 const mini = process.env.X85_MINI === "1";
+// The full app is one at a time, and plays its music on from the tray when its window closes with
+// the music on: it starts again with --music, as a page with no window, no 3D board and no GPU
+// (about 200 MB against 400). Opened from the tray, the full app comes back with --resume, and the
+// music goes on there. The mini app and screenshots quit as before.
+const resident = !mini && !screenshotPath;
+// --hidden: the login entry of 0.1.2's first builds.
+const background = resident && (process.argv.includes("--music") || process.argv.includes("--hidden"));
+const resuming = process.argv.includes("--resume");
+// --after=<pid>: the Dorsal this one takes over from. The two overlap, so the music never stops:
+// this one adopts its sound source, and ends it once its own music plays.
+let handingFrom = Number(process.argv.find((a) => a.startsWith("--after="))?.slice(8)) || null;
+if (background) {
+  app.disableHardwareAcceleration();
+  // Its own Chromium profile, so the two never share one while they overlap.
+  app.setPath("sessionData", path.join(app.getPath("userData"), "Background"));
+}
+
+// The app's own settings (the Sistema tab's "Aplicativo" card), kept in settings.json:
+// closeToTray, the last music source, the language ("system", "pt", "en") and whether the tray's
+// notice was shown. Playing the music at login is the autostart entry itself.
+const SETTINGS = path.join(app.getPath("userData"), "settings.json");
+const DEFAULTS = { closeToTray: true, lang: "system", music: null, toldAboutTray: false };
+let settings = { ...DEFAULTS };
+try {
+  settings = { ...DEFAULTS, ...JSON.parse(fs.readFileSync(SETTINGS, "utf8")) };
+} catch {
+  // First run, or an unreadable file: the defaults.
+}
+function saveSettings(next) {
+  settings = { ...settings, ...next };
+  try {
+    fs.mkdirSync(path.dirname(SETTINGS), { recursive: true });
+    fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2));
+  } catch {
+    // Kept for this session only.
+  }
+}
+
+const systemLang = () => (app.getLocale().toLowerCase().startsWith("pt") ? "pt" : "en");
+const pt = () => (process.env.X85_LANG ?? (settings.lang === "system" ? systemLang() : settings.lang)) === "pt";
+const say = (ptText, enText) => (pt() ? ptText : enText);
 
 function serveDist() {
   protocol.handle("app", (request) => {
@@ -34,7 +76,11 @@ function serveDist() {
 
 function allowHid() {
   const ses = session.defaultSession;
-  ses.setPermissionCheckHandler((_wc, permission) => permission === "hid" && !hidDisabled);
+  // Audio inputs too: the music modes hear the computer's sound through one.
+  ses.setPermissionCheckHandler((_wc, permission) => (permission === "hid" && !hidDisabled) || permission === "media");
+  ses.setPermissionRequestHandler((_wc, permission, callback, details) =>
+    callback((permission === "hid" && !hidDisabled) || (permission === "media" && (details.mediaTypes ?? []).every((t) => t === "audio"))),
+  );
   ses.setDevicePermissionHandler((details) => details.deviceType === "hid" && !hidDisabled && details.device.vendorId === VENDOR_ID);
   ses.on("select-hid-device", (event, details, callback) => {
     event.preventDefault();
@@ -44,26 +90,177 @@ function allowHid() {
   });
 }
 
+// The computer's sound, for the music modes. Chromium does not list PipeWire's monitor sources,
+// but it does list a remap source of one: it is loaded while the music runs, then removed.
+const MUSIC_SOURCE = "dorsal_music";
+let musicModule = null;
+const pactl = (...args) =>
+  new Promise((resolve, reject) => execFile("pactl", args, { timeout: 5000 }, (err, out) => (err ? reject(err) : resolve(String(out).trim()))));
+
+async function startSystemSound() {
+  if (musicModule !== null) return { ok: true };
+  try {
+    for (const line of (await pactl("list", "short", "modules")).split("\n")) {
+      if (!line.includes(`source_name=${MUSIC_SOURCE}`)) continue;
+      const id = line.split("\t")[0];
+      // The source of the Dorsal this one takes over from: kept, and removed by this one at the end.
+      if (handingFrom && alive(handingFrom) && musicModule === null) musicModule = id;
+      // A source left behind by a crash would be listed twice.
+      else await pactl("unload-module", id);
+    }
+    if (musicModule !== null) return { ok: true };
+    const sink = await pactl("get-default-sink");
+    musicModule = await pactl("load-module", "module-remap-source", `master=${sink}.monitor`, `source_name=${MUSIC_SOURCE}`, "source_properties=device.description=Dorsal");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err?.message ?? err) };
+  }
+}
+
+async function stopSystemSound() {
+  if (musicModule === null) return;
+  const id = musicModule;
+  musicModule = null;
+  await pactl("unload-module", id).catch(() => undefined);
+}
+
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** On the way out, synchronously: an exiting app does not wait for an async pactl. */
+function stopSystemSoundNow() {
+  if (musicModule === null) return;
+  const id = musicModule;
+  musicModule = null;
+  try {
+    execFileSync("pactl", ["unload-module", id], { timeout: 3000 });
+  } catch {
+    // The next start removes a source left behind.
+  }
+}
+
 /** The configurator's route in the system's language; X85_TAB picks a section (tela, keys…). */
 function startPath() {
-  const lang = process.env.X85_LANG ?? (app.getLocale().toLowerCase().startsWith("pt") ? "pt" : "en");
   if (mini) return "/mini.html";
-  return `${lang === "en" ? "/en" : ""}/app${process.env.X85_TAB ? `/${process.env.X85_TAB}` : ""}`;
+  if (background) return "/background.html";
+  return `${pt() ? "" : "/en"}/app${process.env.X85_TAB ? `/${process.env.X85_TAB}` : ""}`;
+}
+
+let win = null;
+let tray = null;
+let hasTray = false;
+let quitting = false;
+let musicOn = false;
+
+/** Whether the desktop shows tray icons: some program owns the StatusNotifierWatcher. Without one
+ *  (GNOME with no AppIndicator extension), closing the window ends the music. */
+const trayAvailable = () =>
+  new Promise((resolve) =>
+    execFile(
+      "gdbus",
+      ["call", "--session", "--dest", "org.freedesktop.DBus", "--object-path", "/org/freedesktop/DBus", "--method", "org.freedesktop.DBus.NameHasOwner", "org.kde.StatusNotifierWatcher"],
+      { timeout: 3000 },
+      (err, out) => resolve(!err && String(out).includes("true")),
+    ),
+  );
+
+// The music at login: an autostart entry that starts the AppImage with --music. Only an AppImage
+// knows its own path ($APPIMAGE); the entry is rewritten at each start, so it follows a moved file.
+const AUTOSTART = path.join(app.getPath("appData"), "autostart", "dev.cotoo.dorsal.desktop");
+const autostartOn = () => fs.existsSync(AUTOSTART);
+function setAutostart(on) {
+  if (!on) return fs.rmSync(AUTOSTART, { force: true });
+  fs.mkdirSync(path.dirname(AUTOSTART), { recursive: true });
+  const exec = `"${process.env.APPIMAGE}" --music`;
+  fs.writeFileSync(AUTOSTART, `[Desktop Entry]\nType=Application\nName=Dorsal\nComment=${say("A música do Dorsal no teclado", "Dorsal's music on the keyboard")}\nExec=${exec}\nTerminal=false\nX-GNOME-Autostart-enabled=true\n`);
+}
+
+/** Starts another Dorsal with these arguments, which takes over from this one: this one goes once
+ *  the other plays the music (SIGUSR2), or after 20 s if it never does. The window goes at once. */
+let handingOver = false;
+function restart(args) {
+  if (handingOver) return;
+  handingOver = true;
+  win?.hide();
+  app.releaseSingleInstanceLock();
+  // Not app.relaunch: it starts the new one only after this one ends (a gap in the music), and its
+  // helper runs from the mounted AppImage, which goes away with this process. The AppImage starts
+  // from its file, with no trace of this one's mount in its environment.
+  const mount = process.env.APPDIR;
+  const clean = (list) => (list ?? "").split(":").filter((d) => d && !(mount && d.startsWith(mount))).join(":");
+  const env = process.env.APPIMAGE ? { ...process.env, PATH: clean(process.env.PATH), LD_LIBRARY_PATH: clean(process.env.LD_LIBRARY_PATH) } : process.env;
+  for (const key of process.env.APPIMAGE ? ["APPDIR", "APPIMAGE", "ARGV0", "OWD"] : []) delete env[key];
+  const own = process.argv.slice(1).filter((a) => !["--music", "--hidden", "--resume"].includes(a) && !a.startsWith("--after="));
+  const command = process.env.APPIMAGE ?? process.execPath;
+  spawn(command, [...(process.env.APPIMAGE ? [] : own), ...args, `--after=${process.pid}`], { detached: true, stdio: "ignore", env }).unref();
+  setTimeout(() => app.quit(), 20000);
+}
+
+/** The new Dorsal plays: this one goes, leaving it the sound source. */
+process.on("SIGUSR2", () => {
+  musicModule = null;
+  app.quit();
+});
+
+/** Ends the Dorsal this one took over from: SIGUSR2 leaves its sound source to this one, SIGTERM
+ *  (this one never played) has it removed. */
+function endHandover(signal = "SIGUSR2") {
+  if (!handingFrom) return;
+  try {
+    process.kill(handingFrom, signal);
+  } catch {
+    // Already gone.
+  }
+  handingFrom = null;
+}
+
+function showWindow() {
+  if (background) return restart(["--resume"]);
+  if (!win) return void createWindow();
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+}
+
+/** The tray, only while the music plays with no window: open Dorsal, stop the music, at login. */
+function createTray() {
+  tray = new Tray(path.join(DIST, "icon.png"));
+  tray.setToolTip(say("Dorsal · música tocando", "Dorsal · music playing"));
+  tray.on("click", showWindow);
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: say("Abrir o Dorsal", "Open Dorsal"), click: showWindow },
+      { label: say("Parar a música", "Stop the music"), click: () => win?.webContents.send("music:stop-request") },
+      { type: "separator" },
+      ...(process.env.APPIMAGE ? [{ label: say("Tocar a música ao entrar no sistema", "Play the music at login"), type: "checkbox", checked: autostartOn(), click: (item) => setAutostart(item.checked) }] : []),
+      { label: say("Sair", "Quit"), click: () => app.quit() },
+    ]),
+  );
+  if (!settings.toldAboutTray && Notification.isSupported()) {
+    saveSettings({ toldAboutTray: true });
+    new Notification({ title: "Dorsal", body: say("A música continua, com o Dorsal na bandeja. Para parar, use o menu do ícone.", "The music goes on, with Dorsal in the tray. To stop it, use the icon's menu."), icon: path.join(DIST, "icon.png") }).show();
+  }
 }
 
 async function createWindow() {
-  const win = new BrowserWindow({
+  win = new BrowserWindow({
     ...(mini
       ? { width: 440, height: 620, resizable: false, frame: false, transparent: true, backgroundColor: "#00000000", title: "Dorsal Screen" }
       : { width: 1280, height: 860, minWidth: 420, backgroundColor: "#0a0b0c", title: "Dorsal" }),
-    show: !screenshotPath,
+    show: !screenshotPath && !background,
     autoHideMenuBar: true,
     icon: path.join(DIST, "icon.png"),
     // A minimised window must count as hidden: kept "visible", Chromium waits on frames the
     // compositor never shows, and HID calls stall behind them (uploads paused every second).
     // Uploads keep their pace anyway (their waits run in a worker). Off-screen captures need
     // throttling off, or they freeze mid-transition.
-    webPreferences: { contextIsolation: true, sandbox: true, backgroundThrottling: !screenshotPath },
+    webPreferences: { contextIsolation: true, sandbox: true, backgroundThrottling: !screenshotPath, preload: path.join(__dirname, "preload.cjs") },
   });
   // X85_PREVIEW_UPLOAD=<0..1> shows an upload in progress, for screenshots only (no HID traffic).
   // X85_DEMO=1 opens the demo mode: replays a real keyboard's answers, no hardware needed.
@@ -77,6 +274,13 @@ async function createWindow() {
     ...(process.env.X85_DEV === "1" ? { dev: "1" } : {}),
     ...(process.env.X85_SAMPLE ? { sample: `data:image/png;base64,${fs.readFileSync(process.env.X85_SAMPLE).toString("base64")}` } : {}),
   }).toString();
+  win.on("close", (event) => {
+    if (quitting || background || !musicOn || !hasTray || !settings.closeToTray) return;
+    // Closed with the music on: it plays on from the tray, in a lighter Dorsal.
+    event.preventDefault();
+    restart(["--music"]);
+  });
+  win.on("closed", () => (win = null));
   await win.loadURL(`app://x85${startPath()}${query ? `?${query}` : ""}`);
 
   if (screenshotPath) {
@@ -87,11 +291,63 @@ async function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
+// One Dorsal at a time: opening it again brings back the window, from the tray too.
+if (resident && !app.requestSingleInstanceLock()) app.exit(0);
+app.on("second-instance", () => showWindow());
+
+app.whenReady().then(async () => {
   serveDist();
   allowHid();
+  ipcMain.handle("music:start", startSystemSound);
+  ipcMain.handle("music:stop", stopSystemSound);
+  ipcMain.handle("app:tray", () => hasTray);
+  ipcMain.on("app:quit", () => app.quit());
+  ipcMain.on("music:state", (_e, on, source) => {
+    musicOn = !!on;
+    // The last source, for the tray and the music at login.
+    if (on && source) saveSettings({ music: source });
+    if (on) endHandover();
+    // In the tray, the music was all there was.
+    if (background && !on) app.quit();
+  });
+  ipcMain.handle("settings:get", () => ({
+    musicAtLogin: autostartOn(),
+    canAutostart: !!process.env.APPIMAGE,
+    tray: hasTray,
+    closeToTray: settings.closeToTray,
+    lang: settings.lang,
+    music: settings.music,
+    resume: resuming,
+  }));
+  ipcMain.handle("settings:set", (_e, next) => {
+    if ("musicAtLogin" in next && process.env.APPIMAGE) setAutostart(!!next.musicAtLogin);
+    const keep = {};
+    if ("closeToTray" in next) keep.closeToTray = !!next.closeToTray;
+    if (["system", "pt", "en"].includes(next.lang)) keep.lang = next.lang;
+    saveSettings(keep);
+  });
+  if (resident) hasTray = await trayAvailable();
+  if (resident && process.env.APPIMAGE && autostartOn()) setAutostart(true);
+  if (background) {
+    // No tray, no way to stop the music: nothing starts.
+    if (!hasTray) return app.quit();
+    createTray();
+  }
   createWindow();
+  // A music that does not come back here does not keep the other Dorsal playing alone.
+  if (handingFrom) setTimeout(() => endHandover(musicOn ? "SIGUSR2" : "SIGTERM"), 15000);
   app.on("activate", () => BrowserWindow.getAllWindows().length === 0 && createWindow());
 });
 
+app.on("before-quit", () => (quitting = true));
+// Logging out or a kill ends the app like "Quit", so the sound source is removed too.
+for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"])
+  process.on(signal, () => {
+    stopSystemSoundNow();
+    app.quit();
+    // With its other processes gone too (logout), a quit can stall: exit regardless.
+    setTimeout(() => app.exit(0), 2000).unref();
+  });
 app.on("window-all-closed", () => app.quit());
+// The sound source goes away with the app.
+app.on("will-quit", stopSystemSoundNow);

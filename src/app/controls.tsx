@@ -1,8 +1,8 @@
 // Controls shared by the configurator's sections and the effect studio: cards, steppers, colour
-// swatches and the paint tools.
+// swatches, the paint tools and a command to copy.
 
-import type { ReactNode } from "react";
-import { Brush as BrushIcon, Eraser, Minus, PaintBucket, Pipette, Plus } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Brush as BrushIcon, Check, Copy, Eraser, Minus, PaintBucket, Pipette, Plus } from "lucide-react";
 import { useTr } from "../i18n";
 import type { LightSetting } from "../protocol/x85";
 import type { Brush, Tool } from "./paint";
@@ -138,5 +138,28 @@ export function PaintTools({ brush, setBrush, eraser }: { brush: Brush; setBrush
       <Swatches value={{ rainbow: false, rgb: brush.rgb }} onChange={(p) => p.rgb && setBrush({ tool: brush.tool === "eyedropper" || brush.tool === "eraser" ? "brush" : brush.tool, rgb: p.rgb })} label={tr("do pincel", "for the brush")} noRainbow />
       <p className="text-xs text-neutral-500">{tr("Clique ou arraste sobre as teclas.", "Click or drag over the keys.")}</p>
     </>
+  );
+}
+
+/** A shell command with a button that copies it. */
+export function CopyCommand({ command }: { command: string }) {
+  const tr = useTr();
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-black/50 py-1 pl-3 pr-1 ring-1 ring-white/[0.06]">
+      <code className="scrollbar-hide min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-xs leading-7 text-neutral-200">{command}</code>
+      <button
+        type="button"
+        onClick={() => {
+          void navigator.clipboard?.writeText(command);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }}
+        className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs text-neutral-300 hover:bg-white/5 hover:text-white"
+      >
+        {copied ? <Check className="size-3.5 text-data" /> : <Copy className="size-3.5" />}
+        {copied ? tr("Copiado", "Copied") : tr("Copiar", "Copy")}
+      </button>
+    </div>
   );
 }

@@ -64,7 +64,7 @@ export class DemoTransport {
 
   private async exchange(cmd: ArrayLike<number>, opts: XferOptions, read: boolean): Promise<Uint8Array | undefined> {
     const packet = encodePacket(cmd, opts.checksum);
-    this.log(opts.write && this.dryRun ? "dry" : "tx", packet);
+    if (!opts.quiet) this.log(opts.write && this.dryRun ? "dry" : "tx", packet);
     await sleep(opts.sendDelay ?? 4);
     if (opts.write && !this.dryRun) this.applyWrite(packet);
     if (!read) return packet;

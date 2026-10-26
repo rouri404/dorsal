@@ -9,8 +9,8 @@ part gets its own design, plan and release, and is usable on its own.
 |---|---|---|
 | 1 | [Faithful lighting](#1-faithful-lighting) | done |
 | 2 | [Effect studio](#2-effect-studio) | done |
-| 3 | [Music engine](#3-music-engine) | protocol confirmed on hardware |
-| 4 | [Dorsal in the background](#4-dorsal-in-the-background) | planned |
+| 3 | [Music engine](#3-music-engine) | music done; screen colour to do |
+| 4 | [Dorsal in the background](#4-dorsal-in-the-background) | tray and music done; clock and warnings to do |
 | 5 | [Profiles](#5-profiles) | planned |
 
 The protocol facts behind this plan are in [`protocol.md`](protocol.md#lighting-beyond-the-effect-list).
@@ -55,14 +55,20 @@ Classic (20) and EDM (22). Works in the site and in the AppImage.
 
 - **Sending** (confirmed on hardware): the host streams `0x0D` packets with 42 band heights, each
   0 to 6, about every 20 ms. The keyboard draws them; it has no microphone of its own.
-- **Analysis**: Web Audio splits the sound into 42 log-spaced bands, with a fast rise and a slow
-  fall.
+- **Analysis** (`src/music/bands.ts`): Web Audio splits the sound into 42 log-spaced bands from
+  40 Hz to 16 kHz, tilted up 4.5 dB per octave so the highs show, with a fast rise, a slow fall
+  and a gain that follows the loudest recent band.
+- **Done** (2026-10-26): both modes are in the effect list, with a "Som" card that picks the
+  source and shows the bars. The bars stream only while the keyboard is in a music mode, and
+  keep going in the other tabs. Tested on the keyboard from the AppImage, with the computer's
+  sound, in both modes.
 - **Capture**:
   - **AppImage:** on Linux, Chromium does not list PipeWire's monitor sources. The AppImage loads
     a remap source from the output's monitor while the music runs, and removes it afterwards
     (`pactl load-module module-remap-source`). Tested: it captures any program.
-  - **Site:** the browser cannot create that source. It offers sharing a tab with its audio, or a
-    one-time command that sets up a permanent source, in the spirit of `udev.sh`.
+  - **Site:** the browser cannot create that source. `music.sh`, run once without root, adds a
+    PipeWire loopback that copies the default output into an input named "Dorsal" (tested in
+    Chromium). The site also offers a tab's sound and any microphone.
 - **Limit**: the music only plays while Dorsal is running, as with the vendor's driver.
 - **Screen colour** (mode 21) comes in this part too: the keys follow the colours on the monitor,
   streamed with `0x0E` the same way. The layout of its colours is still to be decoded from the
@@ -71,6 +77,15 @@ Classic (20) and EDM (22). Works in the site and in the AppImage.
 ## 4. Dorsal in the background
 
 The AppImage becomes a resident driver.
+
+**Done** (2026-10-26): one instance, and the music going on with the window closed (about 50
+frames a second, checked on the keyboard), from a lighter Dorsal in the tray: no window, no GPU,
+no 3D board (about 250 MB against 410). The tray icon shows only then, with a menu to open
+Dorsal (the music goes on there), stop the music, play it at login, and quit. With no music,
+closing the window quits: the keyboard keeps its own settings. On the site, closing the tab with
+the music on asks first, and the keys are left dark. Without a tray the window quits as before,
+and the music card says why. The Sistema tab has an "Aplicativo" card for the music in the tray
+and at login; the header's PT/EN switch keeps the language.
 
 - An icon in the tray, with a menu. On GNOME this needs the AppIndicator extension; the app says
   so when the tray is missing.

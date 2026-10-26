@@ -14,6 +14,13 @@ export interface Effect {
 /** Per-key colours: the option picks one of the five designs. */
 export const PER_KEY_MODE = 13;
 
+/**
+ * The keys follow the music the computer streams with 0x0D: Classic (LightMusicFollow3) and EDM
+ * (LightMusicFollow2).
+ */
+export const MUSIC_MODES = [20, 22];
+export const isMusicMode = (mode: number) => MUSIC_MODES.includes(mode);
+
 /** Plays the animation uploaded with 0x12 (LightUserColor). */
 export const ANIMATION_MODE = 25;
 /**
@@ -57,6 +64,8 @@ export const EFFECTS: Effect[] = [
   fx(19, "Toque (apaga)", "Reactive (off)"),
   fx(23, "Trem", "Train"),
   fx(24, "Fogos", "Fireworks"),
+  fx(20, "Música: clássico", "Music: classic", { speed: false }),
+  fx(22, "Música: EDM", "Music: EDM", { speed: false }),
   fx(ANIMATION_MODE, "Personalizado", "Custom", { colour: false, speed: false }),
 ];
 

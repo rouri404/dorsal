@@ -40,7 +40,7 @@ Commands the firmware does not implement come back as an **echo** of the packet 
 | `0x8F` | – | identity | `[1..4]` = ID uint32 LE, `[7..8]` = version |
 | `0x83` | `0x03` | polling rate | `[2]`: 0=8k, 1=4k, 2=2k, 3=1k, 4=500, 5=250, 6=125 |
 | `0x84` | `0x04` | profile | `[1]` |
-| `0x85` | – | power saving | `[1] == 1` |
+| `0x85` | `0x05` | low-power mode: all key LEDs off while the light settings stay | read `[1] == 1`; write `[0x05, 0, 0, on]` (bit7), as the vendor app's `switchKbPowerSaveMode`. Seen on the keyboard: with `1`, the LEDs stayed dark whatever the mode; writing `0` lit them again |
 | `0x86` | `0x06` | debounce | `[1]` |
 | `0x87` | `0x07` (bit8) | main RGB | `[1]` mode, `[2]` = 4−speed, `[3]` brightness, `[4]` = (option<<4)\|(7 normal / 8 rainbow), `[5..7]` RGB |
 | `0x88` | `0x08` (bit8) | side light | the same, but speed is direct; white is written as `fa ff fa` |
@@ -121,7 +121,7 @@ rainbow and 4 for the custom colour.
 | `0x0C` | write per-key colours | `[0x0C, profile, 0xFF, page 0..6, len, last, 0, chk, …56 bytes]`; `len` 56, or 42 and `last` 1 on page 6 |
 | `0x12` | per-key animation | `[0x12]` starts it (then wait 300 ms), then per frame and page: `[0x12, frame, page 0..6, 1, frames, delayLo, delayHi, chk, …56 bytes]`; the colours are laid out as in `0x0C` |
 | `0x0D` | music stream | `[0x0D, 0, 0, 0, 0, 0, 0, chk, h0 … h41]` |
-| `0x0E` | screen-colour stream | `[0x0E, …colours]`; the colour layout is not decoded yet |
+| `0x0E` | screen-colour stream | `[0x0E, r, g, b]`, one colour for the whole board, every 20 ms (read from the driver, not run on the keyboard). The driver asks its capture service for a 1 × 1 thumbnail of a centred 2.35 : 1 crop of the screen, scales its RGB and clamps it to 255, so mode 21 cannot light keys one by one |
 | `0x8B` / `0x0B` | read / write a macro | up to 50; format not documented here yet |
 
 All use `bit7`.
@@ -133,6 +133,10 @@ afterwards.
   driver computes them as `round(clamp(level, 0, 1) × 6)`.
 - **Timing:** the driver sends one packet every 20 ms.
 - **Who draws:** the keyboard draws the bars itself; it has no microphone.
+- **Colour flag:** on 2026-10-26, mode 22 written with the rainbow flag (0) read back with 0 in
+  the low nibble and the custom RGB untouched, so the flag round-trips.
+- **Dorsal** sends each frame with no wait before it, and skips a frame while the previous one
+  is still queued, so a long write (an image upload) never builds a backlog.
 
 ### How each effect moves
 

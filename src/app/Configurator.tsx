@@ -13,7 +13,7 @@ import { FACTORY_BASE, FACTORY_FN_WIN } from "../layout/x85-factory";
 import { X85_KEYS, X85_VIRTUAL } from "../layout/x85";
 import { FUNCTIONS, HID_NAMES, KEY_GROUPS, KEY_KEYWORDS, isEmpty, keyValue, sameValue, type KeyValue } from "../protocol/keycodes";
 import { REPORT_RATES, type LightSetting, type Rgb, type SleepSetting } from "../protocol/x85";
-import { ANIMATION_MODE, EFFECTS, PER_KEY_MODE, effectOf, optionFor } from "../protocol/effects";
+import { ANIMATION_MODE, EFFECTS, PER_KEY_MODE, effectOf, isMusicMode, optionFor } from "../protocol/effects";
 import { DEFAULT_VIEW, type Fit } from "../screen/load";
 import { clampDelay } from "../screen/packets";
 import { SCREEN_H, SCREEN_W } from "../screen/send";
@@ -26,8 +26,10 @@ import { navigate, pathOf, type Section } from "../router";
 import { isDevMode } from "../devMode";
 import { Logo, PRODUCT, SITE } from "../brand";
 import { Board3D, type Framing } from "./Board3D";
-import { Card, Dock, PaintTools, Stepper, Swatches } from "./controls";
+import { Card, CopyCommand, Dock, PaintTools, Stepper, Swatches } from "./controls";
 import { SavedEffects, StudioCards, type Pick } from "./Studio";
+import { MusicCard } from "./MusicCard";
+import { resumeMusic, setMusicTarget, stopMusic, useMusic, type AppSettings, type AppSettingsChange } from "../music/engine";
 import { paint, paintLayer, type Brush } from "./paint";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/motion/tabs";
@@ -90,6 +92,15 @@ export function Configurator({ section }: { section: Section }) {
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [section, selected]);
+  // The music streams only while the keyboard's own light is in a music mode, and stops with it.
+  const music = useMusic();
+  const listening = isMusicMode(snapshot.light?.mode ?? -1);
+  useEffect(() => setMusicTarget(kb ?? null, listening), [kb, listening]);
+  useEffect(() => {
+    if (!kb) void stopMusic();
+  }, [kb]);
+  // The AppImage hears again what was playing when it closed, if its settings say so.
+  useEffect(() => void resumeMusic(), []);
   const uploadPct = job.status === "uploading" ? Math.round(job.progress * 100) : null;
   const storingPct = storing.status === "uploading" ? Math.round(storing.progress * 100) : null;
   useEffect(() => {
@@ -147,6 +158,7 @@ export function Configurator({ section }: { section: Section }) {
                 {tr(s.pt, s.en)}
                 {s.id === "screen" && uploadPct !== null && <span className="num ml-1.5 text-data">{uploadPct}%</span>}
                 {s.id === "light" && storingPct !== null && <span className="num ml-1.5 text-data">{storingPct}%</span>}
+                {s.id === "light" && storingPct === null && music.status === "on" && <span className="ml-1.5 size-1.5 animate-pulse rounded-full bg-data" title={tr("Ouvindo o som", "Listening to the sound")} />}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -284,7 +296,12 @@ function LangSwitch({ section }: { section: Section }) {
           key={l}
           type="button"
           aria-pressed={lang === l}
-          onClick={() => lang !== l && navigate(pathOf({ lang: l, page: "app", section }), { replace: true, fade: true, keepScroll: true })}
+          onClick={() => {
+            if (lang === l) return;
+            // In the AppImage, the choice also holds for the next starts.
+            void window.dorsal?.settings?.set({ lang: l });
+            navigate(pathOf({ lang: l, page: "app", section }), { replace: true, fade: true, keepScroll: true });
+          }}
           className={cn("h-7 rounded-md px-2 text-xs uppercase", lang === l ? "bg-white/[0.12] text-white" : "text-neutral-400 hover:text-white")}
         >
           {l}
@@ -381,28 +398,6 @@ function IconButton({ label, disabled, onClick, children }: { label: string; dis
     <button type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick} className="grid size-8 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-white/5 hover:text-neutral-100 disabled:opacity-40">
       {children}
     </button>
-  );
-}
-
-function CopyCommand({ command }: { command: string }) {
-  const tr = useTr();
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="flex items-center gap-2 rounded-xl bg-black/50 py-1 pl-3 pr-1 ring-1 ring-white/[0.06]">
-      <code className="scrollbar-hide min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-xs leading-7 text-neutral-200">{command}</code>
-      <button
-        type="button"
-        onClick={() => {
-          void navigator.clipboard?.writeText(command);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        }}
-        className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs text-neutral-300 hover:bg-white/5 hover:text-white"
-      >
-        {copied ? <Check className="size-3.5 text-data" /> : <Copy className="size-3.5" />}
-        {copied ? tr("Copiado", "Copied") : tr("Copiar", "Copy")}
-      </button>
-    </div>
   );
 }
 
@@ -819,6 +814,7 @@ function LightSection(props: {
   const effect = effectOf(light.mode);
   const perKey = light.mode === PER_KEY_MODE;
   const custom = light.mode === ANIMATION_MODE;
+  const music = isMusicMode(light.mode);
   const lightDirty = !sameJson(light, snapshot.light);
   const dirtyDesigns = (designs ?? []).flatMap((d, i) => (sameJson(d, snapshot.perKey?.[i]) ? [] : [i]));
   const dirty = lightDirty || dirtyDesigns.length > 0 || (custom && studio.dirty);
@@ -940,7 +936,9 @@ function LightSection(props: {
             )}
           </Card>
         )}
-        {!custom && <Card title={tr("Brilho e velocidade", "Brightness and speed")}>
+        {music ? (
+          <MusicCard brightness={light.brightness} setBrightness={(brightness) => set({ brightness })} onKeyboard={isMusicMode(snapshot.light?.mode ?? -1)} />
+        ) : !custom && <Card title={tr("Brilho e velocidade", "Brightness and speed")}>
           <Stepper label={tr("Brilho", "Brightness")} value={light.brightness} display={of4(light.brightness)} min={0} max={4} onChange={(brightness) => set({ brightness })} disabled={light.mode === 0} />
           <Stepper label={tr("Velocidade", "Speed")} value={light.speed} display={of4(light.speed)} min={0} max={4} onChange={(speed) => set({ speed })} disabled={!effect?.speed} />
         </Card>}
@@ -976,6 +974,7 @@ function EffectGrid({ value, onChange, cols }: { value: number; onChange: (mode:
 
 function SystemSection() {
   const { kb, snapshot, patch, refresh, identity } = useDevice();
+  const desktop = !!window.dorsal?.settings;
   const { busy, status, run } = useAction();
   const tr = useTr();
   const [rate, setRate] = useState(snapshot.reportRate);
@@ -1041,6 +1040,37 @@ function SystemSection() {
         if (!kb.t.dryRun) await refresh();
       }
     });
+  const factoryText = (
+    <p className="text-sm text-neutral-400">
+      {tr("Apaga teclas trocadas, macros e luz. A imagem da tela fica.", "Clears remapped keys, macros and lighting. The screen image stays.")}
+    </p>
+  );
+  const factoryButton = (
+    <HoldActionButton
+      key={resetKey}
+      type="horizontal"
+      holdDuration={2000}
+      disabled={busy}
+      className="h-12 w-full min-w-0 rounded-xl border border-red-500/40 bg-transparent px-5 text-red-400 [--hold-fill:#dc2626] [--hold-radius:12px]"
+      labelClassName="text-sm"
+      holdingLabel={<span className="text-white">{tr("Continue segurando…", "Keep holding…")}</span>}
+      completeLabel={<span className="text-white">{tr("Restaurando…", "Resetting…")}</span>}
+      onHoldComplete={() =>
+        run(tr("Teclado restaurado de fábrica", "Keyboard reset to factory settings"), async () => {
+          try {
+            const ok = await kb.factoryReset();
+            // The firmware needs a moment before it answers again.
+            if (ok && !kb.t.dryRun) setTimeout(() => void refresh(), 4000);
+            return ok;
+          } finally {
+            setResetKey((k) => k + 1);
+          }
+        })
+      }
+    >
+      {tr("Segure para restaurar", "Hold to reset")}
+    </HoldActionButton>
+  );
   const responseDirty = rate !== snapshot.reportRate || debounce !== snapshot.debounce;
   const sleepDirty = JSON.stringify(sleep) !== JSON.stringify(snapshot.sleep);
   const minutes = (label: string, field: keyof SleepSetting) =>
@@ -1171,40 +1201,63 @@ function SystemSection() {
             </>
           )}
         </div>
+        {desktop && (
+          <div className="flex flex-col gap-3 border-t border-white/[0.06] pt-4">
+            <h3 className="text-sm text-neutral-400">{tr("Restaurar padrão de fábrica", "Factory reset")}</h3>
+            {factoryText}
+            {factoryButton}
+          </div>
+        )}
       </Card>
-      <Card title={tr("Restaurar padrão de fábrica", "Factory reset")}>
-        <p className="text-sm text-neutral-400">
-          {tr("Apaga teclas trocadas, macros e luz. A imagem da tela fica.", "Clears remapped keys, macros and lighting. The screen image stays.")}
-        </p>
-        <div className="mt-auto flex flex-col gap-2">
-          <HoldActionButton
-            key={resetKey}
-            type="horizontal"
-            holdDuration={2000}
-            disabled={busy}
-            className="h-12 w-full min-w-0 rounded-xl border border-red-500/40 bg-transparent px-5 text-red-400 [--hold-fill:#dc2626] [--hold-radius:12px]"
-            labelClassName="text-sm"
-            holdingLabel={<span className="text-white">{tr("Continue segurando…", "Keep holding…")}</span>}
-            completeLabel={<span className="text-white">{tr("Restaurando…", "Resetting…")}</span>}
-            onHoldComplete={() =>
-              run(tr("Teclado restaurado de fábrica", "Keyboard reset to factory settings"), async () => {
-                try {
-                  const ok = await kb.factoryReset();
-                  // The firmware needs a moment before it answers again.
-                  if (ok && !kb.t.dryRun) setTimeout(() => void refresh(), 4000);
-                  return ok;
-                } finally {
-                  setResetKey((k) => k + 1);
-                }
-              })
-            }
-          >
-            {tr("Segure para restaurar", "Hold to reset")}
-          </HoldActionButton>
-        </div>
-      </Card>
+      {!desktop && (
+        <Card title={tr("Restaurar padrão de fábrica", "Factory reset")}>
+          {factoryText}
+          <div className="mt-auto flex flex-col gap-2">{factoryButton}</div>
+        </Card>
+      )}
+      {desktop && <AppCard />}
       <Toast status={status} />
     </Dock>
+  );
+}
+
+/** The AppImage's own settings: start at login, the window's close button, the music, the language. */
+function AppCard() {
+  const tr = useTr();
+  const [s, setS] = useState<AppSettings | null>(null);
+  useEffect(() => void window.dorsal?.settings?.get().then(setS), []);
+  if (!s) return null;
+  const set = (next: AppSettingsChange) => {
+    setS({ ...s, ...next });
+    void window.dorsal?.settings?.set(next);
+  };
+  const row = (label: string, hint: string, checked: boolean, onChange: (v: boolean) => void, disabled = false) => (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-sm text-neutral-200">{label}</p>
+        <p className="text-xs text-neutral-500">{hint}</p>
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} ariaLabel={label} />
+    </div>
+  );
+  return (
+    <Card title={tr("Aplicativo", "App")}>
+      {row(
+        tr("A música continua com a janela fechada", "Music goes on with the window closed"),
+        s.tray ? tr("O Dorsal fica na bandeja enquanto ela toca.", "Dorsal stays in the tray while it plays.") : tr("Sem a extensão AppIndicator, o GNOME não mostra a bandeja.", "Without the AppIndicator extension, GNOME shows no tray."),
+        s.tray && s.closeToTray,
+        (closeToTray) => set({ closeToTray }),
+        !s.tray,
+      )}
+      {s.canAutostart &&
+        row(
+          tr("Tocar a música ao entrar no sistema", "Play the music at login"),
+          tr("Na bandeja, com a última fonte, se a luz do teclado estiver num modo de música.", "From the tray, with the last source, if the keyboard's light is in a music mode."),
+          s.tray && s.musicAtLogin,
+          (musicAtLogin) => set({ musicAtLogin }),
+          !s.tray,
+        )}
+    </Card>
   );
 }
 

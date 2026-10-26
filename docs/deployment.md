@@ -27,7 +27,7 @@ The build writes one HTML file per kind of route, each with its own title, descr
 | `/app/*` | `app.html` | no (`noindex, follow`) |
 | `/en/app/*` | `app-en.html` | no (`noindex, follow`) |
 
-Files keep their own paths: `/assets/*`, `/landing/*`, `/mini.html`, the icons, `og.png` and `og-pt.png`, `robots.txt`, `sitemap.xml`, `llms.txt`, `udev.sh` (the one-line Linux setup the landing page shows) and the AppImages. The texts and tags live in `src/seo/`; `robots.txt`, `sitemap.xml` and `llms.txt` follow `VITE_SITE_URL`.
+Files keep their own paths: `/assets/*`, `/landing/*`, `/mini.html`, the icons, `og.png` and `og-pt.png`, `robots.txt`, `sitemap.xml`, `llms.txt`, `udev.sh` (the one-line Linux setup the landing page shows), `music.sh` (the site's computer sound, offered in the lighting tab) and the AppImages. The texts and tags live in `src/seo/`; `robots.txt`, `sitemap.xml` and `llms.txt` follow `VITE_SITE_URL`.
 
 ## The AppImages
 

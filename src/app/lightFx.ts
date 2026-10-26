@@ -4,14 +4,16 @@
 import * as THREE from "three";
 import type { LightSetting } from "../protocol/x85";
 import { BOARD_ROWS, BOARD_UNITS, X85_KEYS } from "../layout/x85";
+import { BANDS, MAX_HEIGHT } from "../music/bands";
+import { liveBars } from "../music/live";
 
 export type Motion =
   | "static" | "breathe" | "neon" | "wave" | "ripple" | "raindrop" | "snake" | "reactive" | "converge" | "sine"
-  | "kaleido" | "lines" | "laser" | "circle" | "rainbow" | "rain" | "meteor" | "reactiveOff" | "train" | "fireworks";
+  | "kaleido" | "lines" | "laser" | "circle" | "rainbow" | "rain" | "meteor" | "reactiveOff" | "train" | "fireworks" | "music";
 const MOTION_OF: Record<number, Motion> = {
   1: "static", 2: "breathe", 3: "neon", 4: "wave", 5: "ripple", 6: "raindrop", 7: "snake", 8: "reactive", 9: "converge",
   10: "sine", 11: "kaleido", 12: "lines", 14: "laser", 15: "circle", 16: "rainbow", 17: "rain", 18: "meteor",
-  19: "reactiveOff", 23: "train", 24: "fireworks",
+  19: "reactiveOff", 20: "music", 22: "music", 23: "train", 24: "fireworks",
 };
 export const frac = (x: number) => x - Math.floor(x);
 const hash = (n: number) => frac(Math.sin(n * 12.9898 + 78.233) * 43758.5453);
@@ -58,6 +60,14 @@ function press(t: number, every: number, salt: number): { x: number; y: number; 
     const row = Math.floor(hash(i * 3.7 + salt) * H);
     return { x: hash(i * 5.3 + salt) * W, y: row + 0.5, row, age: t - i * every };
   });
+}
+
+/** A made-up bar for the preview when no sound is heard: a bass beat and a wandering melody. */
+function demoBar(band: number, t: number): number {
+  const beat = Math.pow(1 - frac(t * 2), 3) * Math.max(0, 1 - band / 12);
+  const melody = 0.5 + 0.5 * Math.sin(t * 3.1 + band * 0.45) * Math.sin(t * 1.3 - band * 0.21);
+  const fade = 1 - band / (BANDS * 1.6);
+  return Math.round(Math.min(1, (0.25 * beat + 0.75 * melody) * fade + 0.4 * beat) * MAX_HEIGHT);
 }
 
 /** How fast an effect's own clock runs at a speed: speed 2 is the filmed one. */
@@ -231,6 +241,14 @@ export function lightAt(l: LightSetting, effect: Motion, p: LightPoint, t: numbe
       const behind = frac(leg) * 2.1 * 25 - along;
       amount = behind < 0 || behind > 20 ? 0 : 1 - clamp01((behind - 12) / 8);
       hue = row / 6;
+      break;
+    }
+    case "music": {
+      // Not filmed: the keyboard draws the bars itself. Here each band is a column across the
+      // board, its height lighting the rows from the bottom; with no sound, bars dance on their own.
+      const band = Math.min(BANDS - 1, Math.floor(u * BANDS));
+      const height = liveBars()?.[band] ?? demoBar(band, T);
+      amount = H - row <= height ? 1 : 0;
       break;
     }
     case "fireworks": {
