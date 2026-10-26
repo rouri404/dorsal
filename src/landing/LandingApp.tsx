@@ -23,7 +23,7 @@ import { TextReveal } from "@/components/motion/text-reveal";
 import { SharedLayoutBg } from "@/components/motion/shared-layout-bg";
 import { ScrollReveal } from "@/components/motion/scroll-reveal";
 
-const VERSION = "0.1.1";
+const VERSION = "0.1.2";
 // The site's root by default, or a release page set in VITE_DOWNLOAD_BASE, where `{version}`
 // stands for VERSION, so a new version needs no change to the host's settings.
 const DOWNLOAD_BASE = (import.meta.env.VITE_DOWNLOAD_BASE ?? "").replaceAll("{version}", VERSION).replace(/\/$/, "");
