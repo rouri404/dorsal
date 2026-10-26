@@ -36,7 +36,7 @@ npm run appimage        # release/Dorsal-<version>.AppImage
 npm run appimage:mini   # release-mini/Dorsal-Screen-<version>.AppImage
 ```
 
-Each is about 135 MB. The landing page links to `<VITE_DOWNLOAD_BASE>/Dorsal-<version>.AppImage` and `<VITE_DOWNLOAD_BASE>/Dorsal-Screen-<version>.AppImage`:
+Each is about 100 MB: the Vite build and Electron with its English and Portuguese locales only (the dependencies are already bundled into `dist/`, so `node_modules` stays out). The landing page links to `<VITE_DOWNLOAD_BASE>/Dorsal-<version>.AppImage` and `<VITE_DOWNLOAD_BASE>/Dorsal-Screen-<version>.AppImage`:
 
 - **On a release page (recommended)**: attach both files to a GitHub release and set `VITE_DOWNLOAD_BASE` to its download URL, such as `https://github.com/<user>/dorsal/releases/download/v0.1.0`. Large binaries stay out of the site and of the repository.
 - **On the site itself**: leave `VITE_DOWNLOAD_BASE` empty and publish the files at the site's root. Check your host's limit on file size first.

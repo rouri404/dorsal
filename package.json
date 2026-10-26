@@ -50,7 +50,12 @@
     "productName": "Dorsal",
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "!node_modules/**/*"
+    ],
+    "electronLanguages": [
+      "en-US",
+      "pt-BR"
     ],
     "linux": {
       "target": "AppImage",

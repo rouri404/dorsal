@@ -5,3 +5,4 @@ release-mini/
 *.exe
 .env
 .taste-skill/
+release-*/
