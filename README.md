@@ -83,7 +83,7 @@ The protocol is documented in [`docs/protocol.md`](docs/protocol.md), with reads
 1. **Access rule:** copy `udev/70-attack-shark-x85.rules` to `/etc/udev/rules.d/`, reload udev and replug the cable.
 2. **Dependencies:** `npm install` (Node 22 or newer).
 3. **Website:** `npm run dev` and open the address in a browser with WebHID.
-4. **AppImage:** `npm run appimage`, then `chmod +x release/Dorsal-0.1.0.AppImage` and open the file.
+4. **AppImage:** `npm run appimage`, then `chmod +x release/Dorsal-0.1.1.AppImage` and open the file.
 
 </details>
 

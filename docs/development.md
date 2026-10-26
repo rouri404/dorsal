@@ -40,7 +40,7 @@ Then unplug and replug the keyboard.
 | --- | --- | --- |
 | `VITE_SITE_URL` | `https://dorsal.cotoo.dev` | The site's address: canonical links, social preview, `robots.txt`, `sitemap.xml` |
 | `VITE_X85_DEV` | `0` | `1` turns on developer mode: the dry-run switch and the Log section |
-| `VITE_DOWNLOAD_BASE` | empty | Where the landing page downloads the AppImages from; empty means the site's root |
+| `VITE_DOWNLOAD_BASE` | empty | Where the landing page downloads the AppImages from; empty means the site's root, and `{version}` stands for the app's version |
 | `VITE_REPO_URL` | `https://github.com/rouri404/dorsal` | The repository: the landing page's link to open an issue |
 
 The AppImages also read variables when they start:

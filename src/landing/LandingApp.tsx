@@ -23,9 +23,10 @@ import { TextReveal } from "@/components/motion/text-reveal";
 import { SharedLayoutBg } from "@/components/motion/shared-layout-bg";
 import { ScrollReveal } from "@/components/motion/scroll-reveal";
 
-const VERSION = "0.1.0";
-// The site's root by default, or a release page set in VITE_DOWNLOAD_BASE.
-const DOWNLOAD_BASE = (import.meta.env.VITE_DOWNLOAD_BASE ?? "").replace(/\/$/, "");
+const VERSION = "0.1.1";
+// The site's root by default, or a release page set in VITE_DOWNLOAD_BASE, where `{version}`
+// stands for VERSION, so a new version needs no change to the host's settings.
+const DOWNLOAD_BASE = (import.meta.env.VITE_DOWNLOAD_BASE ?? "").replaceAll("{version}", VERSION).replace(/\/$/, "");
 const APPIMAGE_FILE = `Dorsal-${VERSION}.AppImage`;
 const MINI_FILE = `Dorsal-Screen-${VERSION}.AppImage`;
 const APPIMAGE = `${DOWNLOAD_BASE}/${APPIMAGE_FILE}`;
@@ -258,7 +259,7 @@ const FEATURES = [
     text: ["Escolha uma foto ou um GIF, arraste para enquadrar e envie. O X85 guarda e mostra no lugar do relógio.", "Pick a photo or a GIF, drag to frame it and send. The X85 keeps it and shows it in place of the clock."],
     points: [
       ["GIFs de até 60 quadros, em 128 × 128", "GIFs up to 60 frames, at 128 × 128"],
-      ["Arraste para posicionar, role para dar zoom", "Drag to position, scroll to zoom"],
+      ["Arraste, role para dar zoom, ou cole com Ctrl+V", "Drag, scroll to zoom, or paste with Ctrl+V"],
       ["Acerta o relógio do teclado com um clique", "Sets the keyboard's clock in one click"],
       ["O envio continua com a janela em segundo plano", "Uploads keep going with the window in the background"],
     ],
@@ -284,12 +285,12 @@ const FEATURES = [
     text: ["Os 21 efeitos das teclas animam no modelo 3D, e o estúdio cria os seus, em camadas. O teclado só muda quando você aplicar.", "The 21 key effects play on the 3D model, and the studio makes your own, in layers. The keyboard only changes when you apply."],
     points: [
       ["Arco-íris, cores prontas ou qualquer cor", "Rainbow, ready colours or any colour"],
-      ["Brilho e velocidade", "Brightness and speed"],
-      ["Estúdio de efeitos, gravado no teclado", "An effect studio, stored on the keyboard"],
-      ["Um só botão aplica tudo", "One button applies it all"],
+      ["Pinte tecla por tecla no modelo 3D", "Paint key by key on the 3D model"],
+      ["Camadas de ondas, pintura e efeitos do teclado", "Layers of waves, paint and the keyboard's effects"],
+      ["O efeito do estúdio fica gravado no teclado", "The studio's effect is stored on the keyboard"],
     ],
     image: "light.png",
-    alt: ["A seção Iluminação: o teclado com a faixa lateral acesa e a grade de efeitos", "The Lighting section: the keyboard with its side band lit and the grid of effects"],
+    alt: ["A seção Iluminação: uma onda arco-íris entre as teclas e o estúdio com as camadas do efeito", "The Lighting section: a rainbow wave between the keys and the studio with the effect's layers"],
   },
   {
     id: "sistema",

@@ -1,7 +1,7 @@
 {
   "name": "dorsal",
   "productName": "Dorsal",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Configurador aberto para o teclado Attack Shark X85 Pro (WebHID + AppImage)",
   "private": true,
   "license": "GPL-3.0-or-later",
